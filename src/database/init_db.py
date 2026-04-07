@@ -2,7 +2,7 @@ from src.database.session import engine
 from src.database.base import Base
 
 # ВАЖНО: импортируем модели, чтобы они зарегистрировались в metadata
-# from src.models import *
+from src.models import *
 
 
 async def init_db():
