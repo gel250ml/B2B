@@ -1,11 +1,11 @@
-from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from src.database.init_db import init_db
 from src.routes.invoice_routes import router as invoice_routes
 from src.routes.product_routes import router as product_routes
 from src.routes.sku_routes import router as sku_routes
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -15,13 +15,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# origins = [
-#     "http://localhost",
-# ]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*'],  # Потом заменить на origins
+    allow_origins=['*'],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
