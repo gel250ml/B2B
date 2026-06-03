@@ -17,7 +17,7 @@ class ProductImageCreate(BaseModel):
 
 
 class ProductCharacteristicCreate(BaseModel):
-    characteristic_id: int = Field(..., description="ID характеристики из справочника")
+    name: str = Field(..., description="Название характеристики")
     value: str = Field(..., description="Значение характеристики")
 
     class Config:
@@ -31,8 +31,8 @@ class ProductCharacteristicCreate(BaseModel):
 
 class ProductCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = Field(None, max_length=5000)
-    category_id: int
+    description: str = Field(..., max_length=5000)
+    category_id: str
     images: List[ProductImageCreate]
     characteristics: List[ProductCharacteristicCreate] = []
 
@@ -47,7 +47,7 @@ class ProductCreate(BaseModel):
             "example": {
                 "title": "iPhone 15 Pro Max",
                 "description": "Флагманский смартфон Apple 2024 года с чипом A17 Pro",
-                "category_id": 1,
+                "category_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                 "images": [
                     {"url": "/s3/iphone15-front.jpg", "ordering": 0},
                     {"url": "/s3/iphone15-back.jpg", "ordering": 1}
@@ -113,8 +113,8 @@ class ProductResponse(BaseModel):
     title: str
     description: Optional[str]
     status: str
-    seller_id: int
-    category_id: int
+    seller_id: str
+    category_id: str
     deleted: bool
     images: List[ProductImageResponse] = []
     characteristic_values: List[ProductCharacteristicResponse] = []
@@ -130,8 +130,8 @@ class ProductResponse(BaseModel):
                 "title": "iPhone 15 Pro Max",
                 "description": "Флагманский смартфон Apple 2024 года с чипом A17 Pro",
                 "status": "CREATED",
-                "seller_id": 1,
-                "category_id": 1,
+                "seller_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "category_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                 "deleted": False,
                 "images": [
                     {"id": 1, "url": "/s3/iphone15-front.jpg", "ordering": 0}
