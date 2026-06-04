@@ -1,4 +1,5 @@
 from uuid import UUID
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
@@ -13,6 +14,9 @@ from src.core.exceptions import (
 from src.services.moderation_event_service import ModerationEventService
 
 
+STATUSES_RETURN_TO_MODERATION = {"MODERATED", "BLOCKED"}
+
+
 class SkuService:
     def __init__(self, session: AsyncSession):
         self.repo = SkuRepository(session)
@@ -21,15 +25,30 @@ class SkuService:
 
     async def register_category(self, data: CategoryCreate) -> CategoryResponse:
         try:
-            category_dict = data.model_dump()
-
-            category = await self.repo.create_category(category_dict)
-
+            category = await self.repo.create_category(data.model_dump())
             await self.session.commit()
             return CategoryResponse.model_validate(category)
         except IntegrityError:
             await self.session.rollback()
             raise ConflictException("Category with this slug already exists")
+
+    async def _resolve_characteristics(
+        self,
+        category_id: UUID,
+        characteristics: list,
+    ) -> list[dict]:
+        resolved: list[dict] = []
+        for char in characteristics:
+            characteristic = await self.repo.get_characteristic_by_name(
+                name=char.name,
+                category_id=category_id,
+            )
+            if not characteristic:
+                raise NotFoundException(f"Characteristic {char.name} not found")
+            resolved.append(
+                {"characteristic_id": characteristic.id, "value": char.value}
+            )
+        return resolved
 
     async def update_sku(
         self,
@@ -41,16 +60,27 @@ class SkuService:
         if not sku:
             raise NotFoundException("SKU not found")
 
-        if sku.product.seller_id != seller_id:
-            raise NotOwnerException(
-                "SKU does not belong to the authenticated seller"
-            )
+        product = sku.product
+        if product.seller_id != seller_id:
+            raise NotOwnerException("Product does not belong to the authenticated seller")
 
-        if sku.product.status == "HARD_BLOCKED":
+        if product.status == "HARD_BLOCKED":
             raise ForbiddenException("Cannot edit hard-blocked product")
 
-        old_product_status = sku.product.status
-        should_send_event = old_product_status in ["MODERATED", "BLOCKED"]
+        old_product_status = product.status
+        should_send_event = old_product_status in STATUSES_RETURN_TO_MODERATION
+
+        resolved_characteristics = None
+        if data.characteristics is not None:
+            resolved_characteristics = await self._resolve_characteristics(
+                category_id=product.category_id,
+                characteristics=data.characteristics,
+            )
+
+        # Сохраняем складские поля, даже если клиент передаст их extra-полями.
+        old_reserved_quantity = sku.reserved_quantity
+        old_active_quantity = sku.active_quantity
+        old_stock_quantity = sku.stock_quantity
 
         if data.name is not None:
             sku.name = data.name
@@ -58,16 +88,31 @@ class SkuService:
             sku.article = data.article
         if data.price is not None:
             sku.price = data.price
+        if data.discount is not None:
+            sku.discount = data.discount
+        if data.cost_price is not None:
+            sku.cost_price = data.cost_price
+
+        sku.reserved_quantity = old_reserved_quantity
+        sku.active_quantity = old_active_quantity
+        sku.stock_quantity = old_stock_quantity
+
+        if resolved_characteristics is not None:
+            await self.repo.replace_sku_characteristics(sku_id, resolved_characteristics)
 
         if should_send_event:
-            sku.product.status = "ON_MODERATION"
+            product.status = "ON_MODERATION"
+            product.blocking_reason_id = None
+            product.moderator_comment = None
 
         self.session.add(sku)
         await self.session.commit()
 
         if should_send_event:
             await self.moderation_service.send_product_edited(
-                product_id=sku.product_id, seller_id=seller_id
+                product_id=sku.product_id,
+                seller_id=seller_id,
             )
 
+        sku = await self.repo.get_sku_with_product(sku_id)
         return SkuResponse.model_validate(sku)

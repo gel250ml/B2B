@@ -25,7 +25,7 @@ router = APIRouter(
 )
 async def create_product(
     data: ProductCreate,
-    seller_id: int = Depends(get_current_seller_id),
+    seller_id: UUID = Depends(get_current_seller_id),
     db: AsyncSession = Depends(get_db),
 ) -> ProductResponse:
     service = ProductService(db)

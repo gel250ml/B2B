@@ -1,33 +1,71 @@
-import pytest
-import base64
-import json
-from unittest.mock import AsyncMock, patch
 from uuid import UUID, uuid4
+from unittest.mock import AsyncMock, patch
 
 import httpx
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.main import app
+from src.models.category import Category
 from src.models.product import Product
 from src.models.sku import Sku
-from src.models.category import Category
-from src.database.dependencies import get_current_seller_id
+from tests.conftest import create_jwt_token
 
 
-def create_jwt_token(seller_id: UUID) -> str:
-    """Create a test JWT token with seller_id in claims."""
-    header = {"alg": "HS256", "typ": "JWT"}
-    payload = {"seller_id": str(seller_id), "sub": str(seller_id)}
+async def create_category(test_db: AsyncSession) -> Category:
+    category = Category(id=uuid4(), name="Electronics", slug=f"electronics-{uuid4()}")
+    test_db.add(category)
+    await test_db.flush()
+    return category
 
-    header_b64 = base64.urlsafe_b64encode(
-        json.dumps(header).encode()
-    ).decode().rstrip("=")
-    payload_b64 = base64.urlsafe_b64encode(
-        json.dumps(payload).encode()
-    ).decode().rstrip("=")
-    signature = base64.urlsafe_b64encode(b"signature").decode().rstrip("=")
 
-    return f"{header_b64}.{payload_b64}.{signature}"
+async def create_product(
+    test_db: AsyncSession,
+    seller_id: UUID,
+    status: str,
+    title: str = "Original Product",
+) -> Product:
+    category = await create_category(test_db)
+    product = Product(
+        id=uuid4(),
+        title=title,
+        description="Original Description",
+        status=status,
+        category_id=category.id,
+        seller_id=seller_id,
+        deleted=False,
+    )
+    test_db.add(product)
+    await test_db.commit()
+    return product
+
+
+async def create_sku(
+    test_db: AsyncSession,
+    product: Product,
+    reserved_quantity: int = 0,
+    active_quantity: int = 100,
+    stock_quantity: int = 100,
+) -> Sku:
+    sku = Sku(
+        id=uuid4(),
+        product_id=product.id,
+        name="Original SKU Name",
+        article=f"SKU-{uuid4()}",
+        price=10000,
+        discount=0,
+        cost_price=7000,
+        stock_quantity=stock_quantity,
+        active_quantity=active_quantity,
+        reserved_quantity=reserved_quantity,
+        deleted=False,
+    )
+    test_db.add(sku)
+    await test_db.commit()
+    return sku
+
+
+def auth_headers(seller_id: UUID) -> dict[str, str]:
+    return {"Authorization": f"Bearer {create_jwt_token(seller_id)}"}
 
 
 @pytest.mark.asyncio
@@ -36,21 +74,7 @@ async def test_edit_moderated_product_returns_to_on_moderation(
     async_client: httpx.AsyncClient,
     seller_id: UUID,
 ):
-    """Test that editing a MODERATED product moves it to ON_MODERATION and sends event."""
-    category = Category(id=uuid4(), name="Electronics", slug="electronics")
-    test_db.add(category)
-    
-    product = Product(
-        id=uuid4(),
-        title="Original Title",
-        description="Original Description",
-        status="MODERATED",
-        category_id=category.id,
-        seller_id=seller_id,
-        deleted=False,
-    )
-    test_db.add(product)
-    await test_db.commit()
+    product = await create_product(test_db, seller_id, "MODERATED", title="Original Title")
 
     with patch(
         "src.services.moderation_event_service.ModerationEventService.send_product_edited",
@@ -59,19 +83,19 @@ async def test_edit_moderated_product_returns_to_on_moderation(
         response = await async_client.patch(
             f"/api/v1/products/{product.id}",
             json={"title": "Updated Title"},
-            headers={"Authorization": f"Bearer {create_jwt_token(seller_id)}"},
+            headers=auth_headers(seller_id),
         )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["title"] == "Updated Title"
-        assert data["status"] == "ON_MODERATION"
+    assert response.status_code == 200
+    data = response.json()
+    assert data["title"] == "Updated Title"
+    assert data["status"] == "ON_MODERATION"
 
-        mock_send.assert_called_once_with(product_id=product.id, seller_id=seller_id)
+    mock_send.assert_awaited_once_with(product_id=product.id, seller_id=seller_id)
 
-        await test_db.refresh(product)
-        assert product.status == "ON_MODERATION"
-        assert product.title == "Updated Title"
+    await test_db.refresh(product)
+    assert product.status == "ON_MODERATION"
+    assert product.title == "Updated Title"
 
 
 @pytest.mark.asyncio
@@ -80,21 +104,7 @@ async def test_edit_blocked_product_returns_to_on_moderation(
     async_client: httpx.AsyncClient,
     seller_id: UUID,
 ):
-    """Test that editing a BLOCKED product moves it to ON_MODERATION."""
-    category = Category(id=uuid4(), name="Electronics", slug="electronics")
-    test_db.add(category)
-    
-    product = Product(
-        id=uuid4(),
-        title="Blocked Product",
-        description="Some description",
-        status="BLOCKED",
-        category_id=category.id,
-        seller_id=seller_id,
-        deleted=False,
-    )
-    test_db.add(product)
-    await test_db.commit()
+    product = await create_product(test_db, seller_id, "BLOCKED")
 
     with patch(
         "src.services.moderation_event_service.ModerationEventService.send_product_edited",
@@ -102,18 +112,17 @@ async def test_edit_blocked_product_returns_to_on_moderation(
     ) as mock_send:
         response = await async_client.patch(
             f"/api/v1/products/{product.id}",
-            json={"title": "Unblocked Title"},
-            headers={"Authorization": f"Bearer {create_jwt_token(seller_id)}"},
+            json={"description": "Fixed after block"},
+            headers=auth_headers(seller_id),
         )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "ON_MODERATION"
+    assert response.status_code == 200
+    assert response.json()["status"] == "ON_MODERATION"
+    mock_send.assert_awaited_once_with(product_id=product.id, seller_id=seller_id)
 
-        mock_send.assert_called_once_with(product_id=product.id, seller_id=seller_id)
-
-        await test_db.refresh(product)
-        assert product.status == "ON_MODERATION"
+    await test_db.refresh(product)
+    assert product.status == "ON_MODERATION"
+    assert product.description == "Fixed after block"
 
 
 @pytest.mark.asyncio
@@ -122,34 +131,14 @@ async def test_reserves_preserved_after_sku_edit(
     async_client: httpx.AsyncClient,
     seller_id: UUID,
 ):
-    """Test that reserved_quantity is preserved when editing SKU."""
-    category = Category(id=uuid4(), name="Electronics", slug="electronics")
-    test_db.add(category)
-    
-    product = Product(
-        id=uuid4(),
-        title="Product with SKU",
-        description="Some description",
-        status="MODERATED",
-        category_id=category.id,
-        seller_id=seller_id,
-        deleted=False,
-    )
-    test_db.add(product)
-    await test_db.commit()
-
-    sku = Sku(
-        id=uuid4(),
-        product_id=product.id,
-        name="Original SKU Name",
-        article="SKU-001",
-        price=10000,
-        active_quantity=100,
+    product = await create_product(test_db, seller_id, "MODERATED")
+    sku = await create_sku(
+        test_db,
+        product,
         reserved_quantity=5,
-        deleted=False,
+        active_quantity=50,
+        stock_quantity=80,
     )
-    test_db.add(sku)
-    await test_db.commit()
 
     with patch(
         "src.services.moderation_event_service.ModerationEventService.send_product_edited",
@@ -160,26 +149,35 @@ async def test_reserves_preserved_after_sku_edit(
             json={
                 "name": "Updated SKU Name",
                 "price": 15000,
-                "article": "SKU-002",
+                "discount": 500,
+                "cost_price": 9000,
+                "article": "SKU-UPDATED",
+                "reserved_quantity": 0,
+                "active_quantity": 0,
+                "stock_quantity": 0,
             },
-            headers={"Authorization": f"Bearer {create_jwt_token(seller_id)}"},
+            headers=auth_headers(seller_id),
         )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["name"] == "Updated SKU Name"
-        assert data["price"] == 15000
-        assert data["article"] == "SKU-002"
-        assert data["reserved_quantity"] == 5
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Updated SKU Name"
+    assert data["price"] == 15000
+    assert data["discount"] == 500
+    assert data["cost_price"] == 9000
+    assert data["article"] == "SKU-UPDATED"
+    assert data["reserved_quantity"] == 5
+    assert data["active_quantity"] == 50
+    assert data["stock_quantity"] == 80
 
-        mock_send.assert_called_once_with(product_id=product.id, seller_id=seller_id)
+    mock_send.assert_awaited_once_with(product_id=product.id, seller_id=seller_id)
 
-        await test_db.refresh(sku)
-        assert sku.reserved_quantity == 5
-        assert sku.name == "Updated SKU Name"
-
-        await test_db.refresh(product)
-        assert product.status == "ON_MODERATION"
+    await test_db.refresh(sku)
+    await test_db.refresh(product)
+    assert sku.reserved_quantity == 5
+    assert sku.active_quantity == 50
+    assert sku.stock_quantity == 80
+    assert product.status == "ON_MODERATION"
 
 
 @pytest.mark.asyncio
@@ -188,21 +186,12 @@ async def test_edit_hard_blocked_returns_403(
     async_client: httpx.AsyncClient,
     seller_id: UUID,
 ):
-    """Test that editing a HARD_BLOCKED product returns 403 Forbidden."""
-    category = Category(id=uuid4(), name="Electronics", slug="electronics")
-    test_db.add(category)
-    
-    product = Product(
-        id=uuid4(),
+    product = await create_product(
+        test_db,
+        seller_id,
+        "HARD_BLOCKED",
         title="Hard Blocked Product",
-        description="Cannot edit",
-        status="HARD_BLOCKED",
-        category_id=category.id,
-        seller_id=seller_id,
-        deleted=False,
     )
-    test_db.add(product)
-    await test_db.commit()
 
     with patch(
         "src.services.moderation_event_service.ModerationEventService.send_product_edited",
@@ -211,19 +200,18 @@ async def test_edit_hard_blocked_returns_403(
         response = await async_client.patch(
             f"/api/v1/products/{product.id}",
             json={"title": "Should Fail"},
-            headers={"Authorization": f"Bearer {create_jwt_token(seller_id)}"},
+            headers=auth_headers(seller_id),
         )
 
-        assert response.status_code == 403
-        data = response.json()
-        assert data["code"] == "FORBIDDEN"
-        assert "Cannot edit hard-blocked product" in data["message"]
+    assert response.status_code == 403
+    data = response.json()
+    assert data["code"] == "FORBIDDEN"
+    assert data["message"] == "Cannot edit hard-blocked product"
+    mock_send.assert_not_awaited()
 
-        mock_send.assert_not_called()
-
-        await test_db.refresh(product)
-        assert product.title == "Hard Blocked Product"
-        assert product.status == "HARD_BLOCKED"
+    await test_db.refresh(product)
+    assert product.title == "Hard Blocked Product"
+    assert product.status == "HARD_BLOCKED"
 
 
 @pytest.mark.asyncio
@@ -233,21 +221,12 @@ async def test_edit_others_product_returns_403(
     seller_id: UUID,
     other_seller_id: UUID,
 ):
-    """Test that editing another seller's product returns 403 NOT_OWNER."""
-    category = Category(id=uuid4(), name="Electronics", slug="electronics")
-    test_db.add(category)
-    
-    product = Product(
-        id=uuid4(),
+    product = await create_product(
+        test_db,
+        seller_id,
+        "MODERATED",
         title="Seller 1 Product",
-        description="Belongs to seller 1",
-        status="CREATED",
-        category_id=category.id,
-        seller_id=seller_id,
-        deleted=False,
     )
-    test_db.add(product)
-    await test_db.commit()
 
     with patch(
         "src.services.moderation_event_service.ModerationEventService.send_product_edited",
@@ -256,106 +235,54 @@ async def test_edit_others_product_returns_403(
         response = await async_client.patch(
             f"/api/v1/products/{product.id}",
             json={"title": "Hijacked Title"},
-            headers={"Authorization": f"Bearer {create_jwt_token(other_seller_id)}"},
+            headers=auth_headers(other_seller_id),
         )
 
-        assert response.status_code == 403
-        data = response.json()
-        assert data["code"] == "NOT_OWNER"
-        assert "does not belong to the authenticated seller" in data["message"]
+    assert response.status_code == 403
+    data = response.json()
+    assert data["code"] == "NOT_OWNER"
+    assert data["message"] == "Product does not belong to the authenticated seller"
+    mock_send.assert_not_awaited()
 
-        mock_send.assert_not_called()
-
-        await test_db.refresh(product)
-        assert product.title == "Seller 1 Product"
+    await test_db.refresh(product)
+    assert product.title == "Seller 1 Product"
+    assert product.status == "MODERATED"
 
 
 @pytest.mark.asyncio
 async def test_edit_product_not_found_returns_404(
-    test_db: AsyncSession,
     async_client: httpx.AsyncClient,
     seller_id: UUID,
 ):
-    """Test that editing a non-existent product returns 404."""
     missing_product_id = uuid4()
     response = await async_client.patch(
         f"/api/v1/products/{missing_product_id}",
         json={"title": "Updated Title"},
-        headers={"Authorization": f"Bearer {create_jwt_token(seller_id)}"},
+        headers=auth_headers(seller_id),
     )
 
     assert response.status_code == 404
     data = response.json()
     assert data["code"] == "NOT_FOUND"
-    assert "Product not found" in data["message"]
+    assert data["message"] == "Product not found"
 
 
 @pytest.mark.asyncio
 async def test_edit_sku_not_found_returns_404(
-    test_db: AsyncSession,
     async_client: httpx.AsyncClient,
     seller_id: UUID,
 ):
-    """Test that editing a non-existent SKU returns 404."""
     missing_sku_id = uuid4()
     response = await async_client.patch(
         f"/api/v1/skus/{missing_sku_id}",
         json={"name": "Updated SKU"},
-        headers={"Authorization": f"Bearer {create_jwt_token(seller_id)}"},
+        headers=auth_headers(seller_id),
     )
 
     assert response.status_code == 404
     data = response.json()
     assert data["code"] == "NOT_FOUND"
-    assert "SKU not found" in data["message"]
-
-
-@pytest.mark.asyncio
-async def test_edit_sku_preserves_active_quantity(
-    test_db: AsyncSession,
-    async_client: httpx.AsyncClient,
-    seller_id: UUID,
-):
-    """Test that active_quantity is preserved when editing SKU."""
-    category = Category(id=uuid4(), name="Electronics", slug="electronics")
-    test_db.add(category)
-    
-    product = Product(
-        id=uuid4(),
-        title="Product",
-        description="Description",
-        status="CREATED",
-        category_id=category.id,
-        seller_id=seller_id,
-        deleted=False,
-    )
-    test_db.add(product)
-    await test_db.commit()
-
-    sku = Sku(
-        id=uuid4(),
-        product_id=product.id,
-        name="SKU",
-        article="SKU-003",
-        price=5000,
-        active_quantity=50,
-        reserved_quantity=10,
-        deleted=False,
-    )
-    test_db.add(sku)
-    await test_db.commit()
-
-    response = await async_client.patch(
-        f"/api/v1/skus/{sku.id}",
-        json={"price": 6000},
-        headers={"Authorization": f"Bearer {create_jwt_token(seller_id)}"},
-    )
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["active_quantity"] == 50
-    assert data["reserved_quantity"] == 10
-    assert data["price"] == 6000
+    assert data["message"] == "SKU not found"
 
 
 @pytest.mark.asyncio
@@ -364,21 +291,7 @@ async def test_edit_product_created_status_no_event(
     async_client: httpx.AsyncClient,
     seller_id: UUID,
 ):
-    """Test that editing CREATED product doesn't trigger moderation event."""
-    category = Category(id=uuid4(), name="Electronics", slug="electronics")
-    test_db.add(category)
-    
-    product = Product(
-        id=uuid4(),
-        title="New Product",
-        description="Just created",
-        status="CREATED",
-        category_id=category.id,
-        seller_id=seller_id,
-        deleted=False,
-    )
-    test_db.add(product)
-    await test_db.commit()
+    product = await create_product(test_db, seller_id, "CREATED", title="New Product")
 
     with patch(
         "src.services.moderation_event_service.ModerationEventService.send_product_edited",
@@ -387,12 +300,11 @@ async def test_edit_product_created_status_no_event(
         response = await async_client.patch(
             f"/api/v1/products/{product.id}",
             json={"title": "Updated New Product"},
-            headers={"Authorization": f"Bearer {create_jwt_token(seller_id)}"},
+            headers=auth_headers(seller_id),
         )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "CREATED"
-        assert data["title"] == "Updated New Product"
-
-        mock_send.assert_not_called()
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "CREATED"
+    assert data["title"] == "Updated New Product"
+    mock_send.assert_not_awaited()

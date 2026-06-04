@@ -33,7 +33,7 @@ secrets/
 *.db
 
 # Тесты и покрытие
-tests/
+# tests/
 .coverage
 .coverage.*
 .htmlcov/

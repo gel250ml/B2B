@@ -3,12 +3,14 @@ import json
 from uuid import UUID
 
 from fastapi import Header, HTTPException
+
 from src.database.session import async_session_maker
 
 
 async def get_db():
     async with async_session_maker() as session:
         yield session
+
 
 def _decode_jwt_payload(token: str) -> dict:
     try:
@@ -19,17 +21,17 @@ def _decode_jwt_payload(token: str) -> dict:
     except (ValueError, IndexError, json.JSONDecodeError):
         raise HTTPException(
             status_code=401,
-            detail={"message": "Invalid authorization token", "code": "UNAUTHORIZED"},
+            detail={"code": "UNAUTHORIZED", "message": "Invalid authorization token"},
         )
 
 
 async def get_current_seller_id(
     authorization: str = Header(..., alias="Authorization"),
-) -> int:
+) -> UUID:
     if not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=401,
-            detail={"message": "Authorization token must be Bearer", "code": "UNAUTHORIZED"},
+            detail={"code": "UNAUTHORIZED", "message": "Authorization token must be Bearer"},
         )
 
     payload = _decode_jwt_payload(authorization.split(" ", 1)[1])
@@ -37,13 +39,13 @@ async def get_current_seller_id(
     if seller_id is None:
         raise HTTPException(
             status_code=401,
-            detail={"message": "seller_id is missing from JWT claims", "code": "UNAUTHORIZED"},
+            detail={"code": "UNAUTHORIZED", "message": "seller_id is missing from JWT claims"},
         )
 
     try:
-        return int(seller_id)
+        return UUID(str(seller_id))
     except (TypeError, ValueError):
         raise HTTPException(
             status_code=401,
-            detail={"message": "seller_id claim must be an integer", "code": "UNAUTHORIZED"},
+            detail={"code": "UNAUTHORIZED", "message": "seller_id claim must be UUID"},
         )
