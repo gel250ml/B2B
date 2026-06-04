@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,9 +41,9 @@ async def create_product(
     },
 )
 async def update_product(
-    product_id: int,
+    product_id: UUID,
     data: ProductUpdate,
-    seller_id: int = Depends(get_current_seller_id),
+    seller_id: UUID = Depends(get_current_seller_id),
     db: AsyncSession = Depends(get_db),
 ) -> ProductResponse:
     service = ProductService(db)

@@ -1,6 +1,9 @@
+import uuid
+
 from sqlalchemy import (
-    Column, Integer, String, Boolean, ForeignKey, DateTime, Index
+    Column, String, Boolean, ForeignKey, DateTime, Index
 )
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.asyncio import AsyncAttrs
@@ -11,8 +14,8 @@ from src.database.base import Base
 class Sku(AsyncAttrs, Base):
     __tablename__ = 'skus'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
     name = Column(String(255), nullable=False)
     article = Column(String(100), unique=True, nullable=True)
     price = Column(Integer, nullable=False)  # Цена в копейках

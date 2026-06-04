@@ -1,4 +1,4 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.repositories.product_repository import ProductRepository
 from src.schemas.product import ProductCreate, ProductResponse, ProductUpdate
@@ -19,26 +19,27 @@ class ProductService:
 
     async def create_product(
         self,
-        seller_id: int,
+        seller_id: UUID,
         data: ProductCreate,
     ) -> ProductResponse:
         category = await self.repo.get_category_by_id(data.category_id)
         if not category:
             raise NotFoundException("Category not found")
 
+        characteristics = []
         for char in data.characteristics:
-            characteristic = await self.repo.get_characteristic_by_id(
-                char.characteristic_id
-            )
+            characteristic = await self.repo.get_characteristic_by_name(char.name)
             if not characteristic:
                 raise NotFoundException(
-                    f"Characteristic {char.characteristic_id} not found"
+                    f"Characteristic {char.name} not found"
                 )
             if characteristic.category_id != data.category_id:
                 raise ValidationException(
-                    f"Characteristic {char.characteristic_id} "
-                    f"does not belong to this category"
+                    f"Characteristic {char.name} does not belong to this category"
                 )
+            characteristics.append(
+                {"characteristic_id": characteristic.id, "value": char.value}
+            )
 
         product = await self.repo.create_product(
             seller_id=seller_id,
@@ -46,7 +47,7 @@ class ProductService:
             description=data.description,
             category_id=data.category_id,
             images=[img.model_dump() for img in data.images],
-            characteristics=[char.model_dump() for char in data.characteristics],
+            characteristics=characteristics,
         )
 
         await self.session.commit()
@@ -54,8 +55,8 @@ class ProductService:
 
     async def update_product(
         self,
-        seller_id: int,
-        product_id: int,
+        seller_id: UUID,
+        product_id: UUID,
         data: ProductUpdate,
     ) -> ProductResponse:
         product = await self.repo.get_product_by_id(product_id)
@@ -88,8 +89,21 @@ class ProductService:
         if data.characteristics is not None:
             await self.repo.delete_product_characteristic_values(product_id)
             for char in data.characteristics:
+                characteristic = await self.repo.get_characteristic_by_name(char.name)
+                if not characteristic:
+                    raise NotFoundException(
+                        f"Characteristic {char.name} not found"
+                    )
+                if characteristic.category_id != (
+                    data.category_id or product.category_id
+                ):
+                    raise ValidationException(
+                        f"Characteristic {char.name} does not belong to this category"
+                    )
                 await self.repo.add_product_characteristic_value(
-                    product_id, char.model_dump()
+                    product_id,
+                    characteristic.id,
+                    char.value,
                 )
 
         if should_send_event:

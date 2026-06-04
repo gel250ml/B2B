@@ -1,5 +1,6 @@
 import base64
 import json
+from uuid import UUID
 
 from fastapi import Header, HTTPException
 from src.database.session import async_session_maker

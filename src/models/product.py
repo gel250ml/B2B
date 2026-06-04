@@ -1,6 +1,9 @@
+import uuid
+
 from sqlalchemy import (
-    Column, Integer, String, Text, Boolean, ForeignKey, DateTime, Index
+    Column, String, Text, Boolean, ForeignKey, DateTime, Index
 )
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.asyncio import AsyncAttrs
@@ -11,12 +14,12 @@ from src.database.base import Base
 class Product(AsyncAttrs, Base):
     __tablename__ = 'products'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     status = Column(String(50), nullable=False, server_default='CREATED')
-    category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
-    seller_id = Column(Integer, nullable=False)
+    category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=False)
+    seller_id = Column(UUID(as_uuid=True), nullable=False)
     moderation_comment = Column(Text, nullable=True)
     deleted = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())

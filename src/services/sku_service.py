@@ -1,3 +1,4 @@
+from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
@@ -32,8 +33,8 @@ class SkuService:
 
     async def update_sku(
         self,
-        seller_id: int,
-        sku_id: int,
+        seller_id: UUID,
+        sku_id: UUID,
         data: SkuUpdate,
     ) -> SkuResponse:
         sku = await self.repo.get_sku_with_product(sku_id)

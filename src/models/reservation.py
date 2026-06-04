@@ -14,7 +14,7 @@ class Reservation(AsyncAttrs, Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     reservation_id = Column(String(100), nullable=False, unique=True)
     order_id = Column(String(100), nullable=False)
-    sku_id = Column(Integer, ForeignKey("skus.id"), nullable=False)
+    sku_id = Column(String(36), ForeignKey("skus.id"), nullable=False)
     quantity = Column(Integer, nullable=False)
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, server_default=func.now())

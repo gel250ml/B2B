@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional, List
+from uuid import UUID
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -17,13 +18,13 @@ class ProductImageCreate(BaseModel):
 
 
 class ProductCharacteristicCreate(BaseModel):
-    characteristic_id: int = Field(..., description="ID характеристики")
+    name: str = Field(..., description="Название характеристики")
     value: str = Field(..., description="Значение характеристики")
 
     class Config:
         json_schema_extra = {
             "example": {
-                "characteristic_id": 1,
+                "name": "Brand",
                 "value": "Apple"
             }
         }
@@ -32,7 +33,7 @@ class ProductCharacteristicCreate(BaseModel):
 class ProductCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     description: str = Field(..., max_length=5000)
-    category_id: int
+    category_id: UUID
     images: List[ProductImageCreate]
     characteristics: List[ProductCharacteristicCreate] = []
 
@@ -47,14 +48,14 @@ class ProductCreate(BaseModel):
             "example": {
                 "title": "iPhone 15 Pro Max",
                 "description": "Флагманский смартфон Apple 2024 года с чипом A17 Pro",
-                "category_id": 3,
+                "category_id": "b1f1c3f5-66d0-47ff-8f4e-a953a0d9c0fb",
                 "images": [
                     {"url": "/s3/iphone15-front.jpg", "ordering": 0},
                     {"url": "/s3/iphone15-back.jpg", "ordering": 1}
                 ],
                 "characteristics": [
-                    {"characteristic_id": 1, "value": "Apple"},
-                    {"characteristic_id": 2, "value": "Китай"}
+                    {"name": "Brand", "value": "Apple"},
+                    {"name": "Origin", "value": "China"}
                 ]
             }
         }
@@ -63,7 +64,7 @@ class ProductCreate(BaseModel):
 class ProductUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = Field(None, max_length=5000)
-    category_id: Optional[int]
+    category_id: Optional[UUID]
     images: Optional[List[ProductImageCreate]]
     characteristics: Optional[List[ProductCharacteristicCreate]]
 
@@ -75,7 +76,7 @@ class ProductUpdate(BaseModel):
 
 
 class ProductImageResponse(BaseModel):
-    id: int
+    id: UUID
     url: str
     ordering: int
 
@@ -83,7 +84,7 @@ class ProductImageResponse(BaseModel):
         from_attributes = True
         json_schema_extra = {
             "example": {
-                "id": 1,
+                "id": "c09f3f58-5dd4-4303-bcf8-4e272b3c0741",
                 "url": "/s3/iphone15-front.jpg",
                 "ordering": 0
             }
@@ -91,21 +92,21 @@ class ProductImageResponse(BaseModel):
 
 
 class ProductCharacteristicResponse(BaseModel):
-    characteristic_id: int
+    name: str
     value: str
 
     class Config:
         from_attributes = True
         json_schema_extra = {
             "example": {
-                "characteristic_id": 1,
+                "name": "Brand",
                 "value": "Apple"
             }
         }
 
 
 class SkuShortResponse(BaseModel):
-    id: int
+    id: UUID
     name: str
     price: int
     active_quantity: int
@@ -114,7 +115,7 @@ class SkuShortResponse(BaseModel):
         from_attributes = True
         json_schema_extra = {
             "example": {
-                "id": 1,
+                "id": "8dbbb3f3-7d3e-4ea9-b9b5-19d7f1a2d81c",
                 "name": "256GB Black",
                 "price": 12999000,
                 "active_quantity": 0
@@ -123,12 +124,12 @@ class SkuShortResponse(BaseModel):
 
 
 class ProductResponse(BaseModel):
-    id: int
+    id: UUID
     title: str
     description: Optional[str]
     status: str
-    seller_id: int
-    category_id: int
+    seller_id: UUID
+    category_id: UUID
     deleted: bool
     images: List[ProductImageResponse] = []
     characteristic_values: List[ProductCharacteristicResponse] = []
@@ -140,18 +141,18 @@ class ProductResponse(BaseModel):
         from_attributes = True
         json_schema_extra = {
             "example": {
-                "id": 1,
+                "id": "2d48d447-45ec-4b9f-a2ad-0ed12a4f033a",
                 "title": "iPhone 15 Pro Max",
                 "description": "Флагманский смартфон Apple 2024 года с чипом A17 Pro",
                 "status": "CREATED",
-                "seller_id": 1,
-                "category_id": 3,
+                "seller_id": "9b9d17d4-9d87-4f33-bf7d-124aa7c82dc9",
+                "category_id": "b1f1c3f5-66d0-47ff-8f4e-a953a0d9c0fb",
                 "deleted": False,
                 "images": [
-                    {"id": 1, "url": "/s3/iphone15-front.jpg", "ordering": 0}
+                    {"id": "c09f3f58-5dd4-4303-bcf8-4e272b3c0741", "url": "/s3/iphone15-front.jpg", "ordering": 0}
                 ],
                 "characteristic_values": [
-                    {"characteristic_id": 1, "value": "Apple"}
+                    {"name": "Brand", "value": "Apple"}
                 ],
                 "skus": [],
                 "created_at": "2026-05-11T10:00:00",

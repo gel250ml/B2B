@@ -1,6 +1,9 @@
+import uuid
+
 from sqlalchemy import (
-    Column, Integer, Text, ForeignKey
+    Column, Text, ForeignKey
 )
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.asyncio import AsyncAttrs
 
@@ -10,8 +13,8 @@ from src.database.base import Base
 class SkuCharacteristicValue(AsyncAttrs, Base):
     __tablename__ = 'sku_characteristic_values'
 
-    sku_id = Column(Integer, ForeignKey("skus.id"), primary_key=True)
-    characteristic_id = Column(Integer, ForeignKey("characteristics.id"), primary_key=True)
+    sku_id = Column(UUID(as_uuid=True), ForeignKey("skus.id"), primary_key=True)
+    characteristic_id = Column(UUID(as_uuid=True), ForeignKey("characteristics.id"), primary_key=True)
     value = Column(Text, nullable=False)
 
     # Связи

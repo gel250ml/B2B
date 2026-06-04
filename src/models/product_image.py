@@ -1,6 +1,9 @@
+import uuid
+
 from sqlalchemy import (
-    Column, Integer, String, ForeignKey, DateTime, Index, UniqueConstraint
+    Column, String, ForeignKey, DateTime, Index, UniqueConstraint
 )
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.asyncio import AsyncAttrs
@@ -11,8 +14,8 @@ from src.database.base import Base
 class ProductImage(AsyncAttrs, Base):
     __tablename__ = 'product_images'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
     url = Column(String(1000), nullable=False)
     ordering = Column(Integer, nullable=False, server_default='0')
     created_at = Column(DateTime, server_default=func.now())

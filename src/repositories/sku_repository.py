@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -16,8 +18,16 @@ class SkuRepository:
         await self.session.flush()   # чтобы получить id
         return category
 
-    async def get_category_by_id(self, category_id: int) -> Category | None:
+    async def get_category_by_id(self, category_id: UUID) -> Category | None:
         result = await self.session.execute(
             select(Category).where(Category.id == category_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_sku_with_product(self, sku_id: UUID) -> Sku | None:
+        result = await self.session.execute(
+            select(Sku)
+            .where(Sku.id == sku_id)
+            .options(selectinload(Sku.product))
         )
         return result.scalar_one_or_none()

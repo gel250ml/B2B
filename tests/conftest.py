@@ -3,7 +3,7 @@ import pytest_asyncio
 import base64
 import json
 from typing import AsyncGenerator
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -45,21 +45,21 @@ async def test_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest.fixture
-def seller_id() -> int:
+def seller_id() -> UUID:
     """Return a test seller_id."""
-    return 1
+    return uuid4()
 
 
 @pytest.fixture
-def other_seller_id() -> int:
+def other_seller_id() -> UUID:
     """Return another test seller_id."""
-    return 2
+    return uuid4()
 
 
-def create_jwt_token(seller_id: int) -> str:
+def create_jwt_token(seller_id: UUID) -> str:
     """Create a test JWT token with seller_id in claims."""
     header = {"alg": "HS256", "typ": "JWT"}
-    payload = {"seller_id": seller_id, "sub": str(seller_id)}
+    payload = {"seller_id": str(seller_id), "sub": str(seller_id)}
 
     header_b64 = base64.urlsafe_b64encode(
         json.dumps(header).encode()
@@ -83,7 +83,7 @@ async def async_client(
 
     def override_get_current_seller_id(
         authorization: str = None,
-    ) -> int:
+    ) -> UUID:
         if authorization and authorization.startswith("Bearer "):
             token = authorization.split(" ", 1)[1]
             try:
@@ -91,7 +91,7 @@ async def async_client(
                 payload += '=' * (-len(payload) % 4)
                 raw = base64.urlsafe_b64decode(payload.encode())
                 claims = json.loads(raw)
-                return int(claims.get("seller_id", seller_id))
+                return UUID(claims.get("seller_id", str(seller_id)))
             except Exception:
                 return seller_id
         return seller_id

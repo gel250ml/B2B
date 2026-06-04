@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,9 +40,9 @@ async def create_category(
     },
 )
 async def update_sku(
-    sku_id: int,
+    sku_id: UUID,
     data: SkuUpdate,
-    seller_id: int = Depends(get_current_seller_id),
+    seller_id: UUID = Depends(get_current_seller_id),
     db: AsyncSession = Depends(get_db),
 ) -> SkuResponse:
     service = SkuService(db)

@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 from pydantic import BaseModel, Field
 
 
@@ -7,7 +8,7 @@ class CategoryCreate(BaseModel):
     """Схема для создания новой категории"""
     name: str = Field(..., max_length=255, description="Название категории")
     slug: str = Field(..., max_length=255, description="URL- slug категории (уникальный)")
-    parent_id: Optional[int] = Field(None, description="ID родительской категории")
+    parent_id: Optional[UUID] = Field(None, description="ID родительской категории")
 
     class Config:
         json_schema_extra = {
@@ -21,10 +22,10 @@ class CategoryCreate(BaseModel):
 
 class CategoryResponse(BaseModel):
     """Схема для ответа с данными категории"""
-    id: int
+    id: UUID
     name: str
     slug: str
-    parent_id: Optional[int]
+    parent_id: Optional[UUID]
     created_at: datetime
     updated_at: datetime
 
@@ -56,8 +57,8 @@ class SkuUpdate(BaseModel):
 
 
 class SkuResponse(BaseModel):
-    id: int
-    product_id: int
+    id: UUID
+    product_id: UUID
     name: str
     article: Optional[str]
     price: int
