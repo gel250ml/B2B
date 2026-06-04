@@ -17,7 +17,7 @@ class ProductImageCreate(BaseModel):
 
 
 class ProductCharacteristicCreate(BaseModel):
-    name: str = Field(..., description="Название характеристики")
+    characteristic_id: int = Field(..., description="ID характеристики")
     value: str = Field(..., description="Значение характеристики")
 
     class Config:
@@ -32,7 +32,7 @@ class ProductCharacteristicCreate(BaseModel):
 class ProductCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     description: str = Field(..., max_length=5000)
-    category_id: str
+    category_id: int
     images: List[ProductImageCreate]
     characteristics: List[ProductCharacteristicCreate] = []
 
@@ -47,7 +47,7 @@ class ProductCreate(BaseModel):
             "example": {
                 "title": "iPhone 15 Pro Max",
                 "description": "Флагманский смартфон Apple 2024 года с чипом A17 Pro",
-                "category_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "category_id": 3,
                 "images": [
                     {"url": "/s3/iphone15-front.jpg", "ordering": 0},
                     {"url": "/s3/iphone15-back.jpg", "ordering": 1}
@@ -58,6 +58,20 @@ class ProductCreate(BaseModel):
                 ]
             }
         }
+
+
+class ProductUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = Field(None, max_length=5000)
+    category_id: Optional[int]
+    images: Optional[List[ProductImageCreate]]
+    characteristics: Optional[List[ProductCharacteristicCreate]]
+
+    @model_validator(mode='after')
+    def check_images(self):
+        if self.images is not None and not self.images:
+            raise ValueError('At least one image is required')
+        return self
 
 
 class ProductImageResponse(BaseModel):
@@ -113,8 +127,8 @@ class ProductResponse(BaseModel):
     title: str
     description: Optional[str]
     status: str
-    seller_id: str
-    category_id: str
+    seller_id: int
+    category_id: int
     deleted: bool
     images: List[ProductImageResponse] = []
     characteristic_values: List[ProductCharacteristicResponse] = []
@@ -130,8 +144,8 @@ class ProductResponse(BaseModel):
                 "title": "iPhone 15 Pro Max",
                 "description": "Флагманский смартфон Apple 2024 года с чипом A17 Pro",
                 "status": "CREATED",
-                "seller_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "category_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "seller_id": 1,
+                "category_id": 3,
                 "deleted": False,
                 "images": [
                     {"id": 1, "url": "/s3/iphone15-front.jpg", "ordering": 0}

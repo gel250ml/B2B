@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 
 
 class CategoryCreate(BaseModel):
@@ -47,3 +47,25 @@ class CategoryUpdate(BaseModel):
                 "parent_id": 4
             }
         }
+
+
+class SkuUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=255)
+    article: Optional[str] = Field(None, max_length=100)
+    price: Optional[int]
+
+
+class SkuResponse(BaseModel):
+    id: int
+    product_id: int
+    name: str
+    article: Optional[str]
+    price: int
+    active_quantity: int
+    reserved_quantity: int
+    deleted: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

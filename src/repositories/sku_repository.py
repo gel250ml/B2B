@@ -1,7 +1,9 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from src.models import Category # или другие модели с которыми будем работать
+from src.models import Category, Sku
+from src.models.product import Product
 
 class SkuRepository:
     def __init__(self, session: AsyncSession):

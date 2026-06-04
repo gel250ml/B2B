@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -73,3 +73,47 @@ class ProductRepository:
             )
         )
         return result.scalar_one()
+
+    async def get_product_by_id(self, product_id: int) -> Product | None:
+        result = await self.session.execute(
+            select(Product).where(Product.id == product_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_product_with_relations_by_id(self, product_id: int) -> Product | None:
+        result = await self.session.execute(
+            select(Product)
+            .where(Product.id == product_id)
+            .options(
+                selectinload(Product.images),
+                selectinload(Product.characteristic_values),
+                selectinload(Product.skus),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def delete_product_images(self, product_id: int) -> None:
+        await self.session.execute(
+            delete(ProductImage).where(ProductImage.product_id == product_id)
+        )
+
+    async def delete_product_characteristic_values(self, product_id: int) -> None:
+        await self.session.execute(
+            delete(ProductCharacteristicValue).where(
+                ProductCharacteristicValue.product_id == product_id
+            )
+        )
+
+    async def add_product_image(self, product_id: int, image: dict) -> None:
+        self.session.add(ProductImage(
+            product_id=product_id,
+            url=image["url"],
+            ordering=image.get("ordering", 0),
+        ))
+
+    async def add_product_characteristic_value(self, product_id: int, characteristic: dict) -> None:
+        self.session.add(ProductCharacteristicValue(
+            product_id=product_id,
+            characteristic_id=characteristic["characteristic_id"],
+            value=characteristic["value"],
+        ))
