@@ -15,6 +15,7 @@ class InvoiceItem(AsyncAttrs, Base):
     sku_id = Column(Uuid(as_uuid=True), ForeignKey("skus.id"), nullable=False)
     quantity = Column(Integer, nullable=False)
     sku_name = Column(String(255), nullable=False)
+    accepted_quantity = Column(Integer, nullable=True)
 
     invoice = relationship("Invoice", backref="items")
     sku = relationship("Sku", backref="invoice_items")
