@@ -5,7 +5,7 @@ from src.core.config import MODERATION_URL, B2B_TO_MOD_KEY
 
 
 class ModerationEventService:
-    async def send_product_edited(self, product_id, seller_id) -> None:
+    async def send_product_edited(self, product_id, seller_id, event:str) -> None:
         """Send EDITED event to Moderation service."""
         if not MODERATION_URL or not B2B_TO_MOD_KEY:
             return
@@ -14,7 +14,7 @@ class ModerationEventService:
             "idempotency_key": str(uuid4()),
             "product_id": str(product_id),
             "seller_id": str(seller_id),
-            "event": "EDITED",
+            "event": event,
             "date": datetime.now(timezone.utc).isoformat(),
         }
 

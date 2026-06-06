@@ -4,15 +4,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from src.repositories.sku_repository import SkuRepository
-from src.schemas.sku import CategoryCreate, CategoryResponse, SkuUpdate, SkuResponse
+from src.schemas.sku import SkuUpdate, SkuResponse, SkuCreate
 from src.core.exceptions import (
     ConflictException,
     NotFoundException,
     NotOwnerException,
-    ForbiddenException,
+    ForbiddenException, ValidationException,
 )
 from src.services.moderation_event_service import ModerationEventService
-
 
 STATUSES_RETURN_TO_MODERATION = {"MODERATED", "BLOCKED"}
 
@@ -23,19 +22,83 @@ class SkuService:
         self.session = session
         self.moderation_service = ModerationEventService()
 
-    async def register_category(self, data: CategoryCreate) -> CategoryResponse:
+    async def create_sku(
+            self,
+            seller_id: UUID,
+            data: SkuCreate
+    ) -> SkuResponse:
+        product = await self.repo.get_product_by_id(data.product_id)
+        if product is None:
+            raise NotFoundException(f"Product not found")
+        if product.seller_id != seller_id:
+            raise NotOwnerException("Product does not belong to the authenticated seller")
+
+        if product.status == "HARD_BLOCKED":
+            raise ForbiddenException("Cannot add SKU to hard-blocked product")
+
+        if data.price <= 0:
+            raise ValidationException("price must be a positive integer (kopecks)")
+
+        if data.cost_price is not None and data.cost_price <= 0:
+            raise ValidationException("cost_price must be a positive integer (kopecks")
+
+        if len(data.images) == 0:
+            raise ValidationException("image is required")
+
+        resolved_characteristics = None
+        if data.characteristics is not None:
+            resolved_characteristics = await self._resolve_characteristics(
+                category_id=product.category_id,
+                characteristics=data.characteristics,
+            )
+
+        has_skus = await self.repo.has_skus(product_id=product.id)
+
+        should_send_event = False
+        event = "EDITED"
+        if product.status == "CREATED" and not has_skus:
+            event = "CREATED"
+            should_send_event = True
+        elif product.status in STATUSES_RETURN_TO_MODERATION:
+            event = "EDITED"
+            should_send_event = True
+
+        if should_send_event:
+            product.status = "ON_MODERATION"
+            product.blocking_reason_id = None
+            product.moderator_comment = None
+
         try:
-            category = await self.repo.create_category(data.model_dump())
+            sku = await self.repo.create_sku(
+                product_id=product.id,
+                name=data.name,
+                article=data.article,
+                price=data.price,
+                discount=data.discount,
+                cost_price=data.cost_price,
+                characteristics=resolved_characteristics,
+                images=[img.model_dump() for img in data.images],
+            )
+            self.session.add(sku)
             await self.session.commit()
-            return CategoryResponse.model_validate(category)
-        except IntegrityError:
+        except:
             await self.session.rollback()
-            raise ConflictException("Category with this slug already exists")
+            raise ValidationException("SKU with this article already exists")
+
+        if should_send_event:
+            await self.moderation_service.send_product_edited(
+                product_id=sku.product_id,
+                seller_id=seller_id,
+                event=event,
+            )
+
+        sku = await self.repo.get_sku_with_product(sku.id)
+        return SkuResponse.model_validate(sku)
 
     async def _resolve_characteristics(
-        self,
-        category_id: UUID,
-        characteristics: list,
+            self,
+            category_id: UUID,
+            characteristics: list,
     ) -> list[dict]:
         resolved: list[dict] = []
         for char in characteristics:
@@ -51,10 +114,10 @@ class SkuService:
         return resolved
 
     async def update_sku(
-        self,
-        seller_id: UUID,
-        sku_id: UUID,
-        data: SkuUpdate,
+            self,
+            seller_id: UUID,
+            sku_id: UUID,
+            data: SkuUpdate,
     ) -> SkuResponse:
         sku = await self.repo.get_sku_with_product(sku_id)
         if not sku:
@@ -112,6 +175,7 @@ class SkuService:
             await self.moderation_service.send_product_edited(
                 product_id=sku.product_id,
                 seller_id=seller_id,
+                event="EDITED",
             )
 
         sku = await self.repo.get_sku_with_product(sku_id)
