@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import Header, HTTPException
 
-from src.core.config import B2B_TO_MOD_KEY
+from src.core.config import B2B_TO_MOD_KEY, MOD_TO_B2B_KEY
 from src.database.session import async_session_maker
 
 
@@ -80,3 +80,13 @@ async def get_product_access_context(
         mode="seller",
         seller_id=_seller_id_from_authorization(authorization),
     )
+
+async def verify_moderation_service_key(
+    x_service_key: str | None = Header(None, alias="X-Service-Key"),
+) -> None:
+    expected_key = MOD_TO_B2B_KEY or B2B_TO_MOD_KEY
+    if not expected_key or x_service_key != expected_key:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "UNAUTHORIZED", "message": "Invalid service key"},
+        )

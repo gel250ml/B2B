@@ -175,7 +175,6 @@ class SkuService:
             await self.moderation_service.send_product_edited(
                 product_id=sku.product_id,
                 seller_id=seller_id,
-                event="EDITED",
             )
 
         sku = await self.repo.get_sku_with_product(sku_id)
