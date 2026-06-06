@@ -1,10 +1,19 @@
 import base64
 import json
+from dataclasses import dataclass
+from typing import Literal
 from uuid import UUID
 
 from fastapi import Header, HTTPException
 
+from src.core.config import B2B_TO_MOD_KEY
 from src.database.session import async_session_maker
+
+
+@dataclass(frozen=True)
+class ProductAccessContext:
+    mode: Literal["seller", "service"]
+    seller_id: UUID | None = None
 
 
 async def get_db():
@@ -25,10 +34,8 @@ def _decode_jwt_payload(token: str) -> dict:
         )
 
 
-async def get_current_seller_id(
-    authorization: str = Header(..., alias="Authorization"),
-) -> UUID:
-    if not authorization.startswith("Bearer "):
+def _seller_id_from_authorization(authorization: str | None) -> UUID:
+    if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=401,
             detail={"code": "UNAUTHORIZED", "message": "Authorization token must be Bearer"},
@@ -49,3 +56,27 @@ async def get_current_seller_id(
             status_code=401,
             detail={"code": "UNAUTHORIZED", "message": "seller_id claim must be UUID"},
         )
+
+
+async def get_current_seller_id(
+    authorization: str = Header(..., alias="Authorization"),
+) -> UUID:
+    return _seller_id_from_authorization(authorization)
+
+
+async def get_product_access_context(
+    authorization: str | None = Header(None, alias="Authorization"),
+    x_service_key: str | None = Header(None, alias="X-Service-Key"),
+) -> ProductAccessContext:
+    if x_service_key is not None:
+        if not B2B_TO_MOD_KEY or x_service_key != B2B_TO_MOD_KEY:
+            raise HTTPException(
+                status_code=401,
+                detail={"code": "UNAUTHORIZED", "message": "Invalid service key"},
+            )
+        return ProductAccessContext(mode="service")
+
+    return ProductAccessContext(
+        mode="seller",
+        seller_id=_seller_id_from_authorization(authorization),
+    )

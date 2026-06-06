@@ -3,10 +3,16 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database.dependencies import get_db, get_current_seller_id
+from src.database.dependencies import (
+    ProductAccessContext,
+    get_db,
+    get_current_seller_id,
+    get_product_access_context,
+)
 from src.services.product_service import ProductService
 from src.schemas.product import ProductCreate, ProductResponse, ProductUpdate
 from src.schemas.error import ErrorResponse
+from src.core.exceptions import ValidationException
 
 router = APIRouter(
     prefix="/products",
@@ -30,6 +36,28 @@ async def create_product(
 ) -> ProductResponse:
     service = ProductService(db)
     return await service.create_product(seller_id, data)
+
+
+@router.get(
+    "/{product_id}",
+    responses={
+        200: {"description": "Product detail"},
+        400: {"model": ErrorResponse, "description": "Invalid product id"},
+        404: {"model": ErrorResponse, "description": "Product not found"},
+    },
+)
+async def get_product(
+    product_id: str,
+    access: ProductAccessContext = Depends(get_product_access_context),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    try:
+        parsed_product_id = UUID(product_id)
+    except ValueError:
+        raise ValidationException("id must be a valid UUID")
+
+    service = ProductService(db)
+    return await service.get_product_detail(access, parsed_product_id)
 
 
 @router.patch(

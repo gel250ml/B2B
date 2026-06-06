@@ -6,8 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.models.product import Product
+from src.models.sku import Sku
 from src.models.product_image import ProductImage
 from src.models.product_characteristic_value import ProductCharacteristicValue
+from src.models.product_field_report import ProductFieldReport
+from src.models.sku_characteristic_value import SkuCharacteristicValue
+from src.models.sku_image import SkuImage  # noqa: F401 - registers Sku.images backref
+from src.models.blocking_reason import BlockingReason  # noqa: F401 - registers BlockingReason mapper
 from src.models.category import Category
 from src.models.characteristic import Characteristic
 
@@ -35,11 +40,17 @@ class ProductRepository:
 
     def _product_options(self):
         return (
+            selectinload(Product.category),
             selectinload(Product.images),
             selectinload(Product.characteristic_values).selectinload(
                 ProductCharacteristicValue.characteristic
             ),
-            selectinload(Product.skus),
+            selectinload(Product.skus).selectinload(Sku.images),
+            selectinload(Product.skus).selectinload(
+                Sku.characteristic_values
+            ).selectinload(SkuCharacteristicValue.characteristic),
+            selectinload(Product.blocking_reason),
+            selectinload(Product.field_reports),
         )
 
     async def create_product(
@@ -112,3 +123,8 @@ class ProductRepository:
                     value=characteristic["value"],
                 )
             )
+
+    async def delete_product_field_reports(self, product_id: UUID) -> None:
+        await self.session.execute(
+            delete(ProductFieldReport).where(ProductFieldReport.product_id == product_id)
+        )
