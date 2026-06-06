@@ -11,3 +11,6 @@ MODERATION_URL = os.getenv("MODERATION_URL")
 B2B_TO_MOD_KEY = os.getenv("B2B_TO_MOD_KEY")
 # env_path = Path(__file__).resolve().parents[2] / ".env"
 # load_dotenv(dotenv_path=env_path)
+MOD_TO_B2B_KEY = os.getenv("MOD_TO_B2B_KEY")
+B2C_URL = os.getenv("B2C_URL")
+B2B_TO_B2C_KEY = os.getenv("B2B_TO_B2C_KEY")

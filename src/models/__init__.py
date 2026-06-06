@@ -12,6 +12,7 @@ from .invoice import Invoice
 from .invoice_item import InvoiceItem
 from .reservation import Reservation
 from .product_field_report import ProductFieldReport
+from .processed_event import ProcessedEvent
 
 __all__ = [
     "Category",
@@ -28,4 +29,5 @@ __all__ = [
     "InvoiceItem",
     "Reservation",
     "ProductFieldReport",
+    "ProcessedEvent",
 ]

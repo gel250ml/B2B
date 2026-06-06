@@ -7,6 +7,7 @@ from src.database.init_db import init_db
 from src.routes.invoice_routes import router as invoice_routes
 from src.routes.product_routes import router as product_routes
 from src.routes.sku_routes import router as sku_routes
+from src.routes.moderation_event_routes import router as moderation_event_routes
 
 
 @asynccontextmanager
@@ -54,3 +55,4 @@ app.add_middleware(
 app.include_router(invoice_routes, prefix="/api/v1")
 app.include_router(product_routes, prefix="/api/v1")
 app.include_router(sku_routes, prefix="/api/v1")
+app.include_router(moderation_event_routes, prefix="/api/v1")

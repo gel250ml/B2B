@@ -133,11 +133,30 @@ class ProductService:
             await self.moderation_service.send_product_edited(
                 product_id=product_id,
                 seller_id=seller_id,
-                event="EDITED",
             )
 
         product = await self.repo.get_product_with_relations_by_id(product_id)
         return ProductResponse.model_validate(product)
+
+
+    async def delete_product(
+        self,
+        seller_id: UUID,
+        product_id: UUID,
+    ) -> None:
+        product = await self.repo.get_product_with_relations_by_id(product_id)
+        if not product:
+            raise NotFoundException("Product not found")
+
+        if product.seller_id != seller_id:
+            raise NotOwnerException("Product does not belong to the authenticated seller")
+
+        if product.status == "HARD_BLOCKED":
+            raise ForbiddenException("Cannot delete hard-blocked product")
+
+        product.deleted = True
+        self.session.add(product)
+        await self.session.commit()
 
     async def get_product_detail(
         self,

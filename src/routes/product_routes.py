@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.dependencies import (
@@ -76,3 +76,39 @@ async def update_product(
 ) -> ProductResponse:
     service = ProductService(db)
     return await service.update_product(seller_id, product_id, data)
+
+@router.put(
+    "/{product_id}",
+    responses={
+        400: {"model": ErrorResponse, "description": "Validation error"},
+        403: {"model": ErrorResponse, "description": "Forbidden"},
+        404: {"model": ErrorResponse, "description": "Product not found"},
+    },
+)
+async def put_product(
+    product_id: UUID,
+    data: ProductUpdate,
+    seller_id: UUID = Depends(get_current_seller_id),
+    db: AsyncSession = Depends(get_db),
+) -> ProductResponse:
+    service = ProductService(db)
+    return await service.update_product(seller_id, product_id, data)
+
+
+@router.delete(
+    "/{product_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        403: {"model": ErrorResponse, "description": "Forbidden"},
+        404: {"model": ErrorResponse, "description": "Product not found"},
+    },
+)
+async def delete_product(
+    product_id: UUID,
+    seller_id: UUID = Depends(get_current_seller_id),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    service = ProductService(db)
+    await service.delete_product(seller_id, product_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
