@@ -18,13 +18,20 @@ class Product(AsyncAttrs, Base):
     status = Column(String(50), nullable=False, server_default='CREATED')
     category_id = Column(Uuid(as_uuid=True), ForeignKey("categories.id"), nullable=False)
     seller_id = Column(Uuid(as_uuid=True), nullable=False)
-    blocking_reason_id = Column(Uuid(as_uuid=True), nullable=True)
+    blocking_reason_id = Column(Uuid(as_uuid=True),ForeignKey("blocking_reasons.id"), nullable=True)
     moderator_comment = Column(Text, nullable=True)
     deleted = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-
     category = relationship("Category", backref="products")
+
+    blocking_reason = relationship("BlockingReason", back_populates="products")
+
+    field_reports = relationship(
+        "ProductFieldReport",
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )
 
     @property
     def characteristics(self):
