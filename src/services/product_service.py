@@ -133,6 +133,7 @@ class ProductService:
             await self.moderation_service.send_product_edited(
                 product_id=product_id,
                 seller_id=seller_id,
+                event="EDITED",
             )
 
         product = await self.repo.get_product_with_relations_by_id(product_id)

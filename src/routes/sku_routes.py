@@ -1,11 +1,11 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.dependencies import get_db, get_current_seller_id
 from src.services.sku_service import SkuService
-from src.schemas.sku import CategoryCreate, CategoryResponse, SkuUpdate, SkuResponse
+from src.schemas.sku import SkuUpdate, SkuResponse, SkuCreate
 from src.schemas.error import ErrorResponse
 
 router = APIRouter(
@@ -15,20 +15,21 @@ router = APIRouter(
 
 
 @router.post(
-    "/category",
+    "",
+    status_code=status.HTTP_201_CREATED,
     responses={
-        409: {
-            "model": ErrorResponse,
-            "description": "Category already exists",
-        }
-    }
+        400: {"model": ErrorResponse, "description": "Invalid request"},
+        403: {"model": ErrorResponse, "description": "Forbidden"},
+        404: {"model": ErrorResponse, "description": "Not fount"},
+    },
 )
-async def create_category(
-        data: CategoryCreate,
+async def create_sku(
+        data: SkuCreate,
+        seller_id: UUID = Depends(get_current_seller_id),
         db: AsyncSession = Depends(get_db)
-) -> CategoryResponse:
+) -> SkuResponse:
     service = SkuService(db)
-    return await service.register_category(data)
+    return await service.create_sku(seller_id, data)
 
 
 @router.patch(
@@ -40,10 +41,10 @@ async def create_category(
     },
 )
 async def update_sku(
-    sku_id: UUID,
-    data: SkuUpdate,
-    seller_id: UUID = Depends(get_current_seller_id),
-    db: AsyncSession = Depends(get_db),
+        sku_id: UUID,
+        data: SkuUpdate,
+        seller_id: UUID = Depends(get_current_seller_id),
+        db: AsyncSession = Depends(get_db),
 ) -> SkuResponse:
     service = SkuService(db)
     return await service.update_sku(seller_id, sku_id, data)
