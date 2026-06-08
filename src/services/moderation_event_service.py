@@ -86,3 +86,23 @@ class ModerationEventService:
                     return
             except Exception:
                 pass
+
+    async def send_product_deleted_to_b2c(self, product_id: UUID, sku_ids: list[UUID]) -> None:
+        if not B2C_URL or not B2B_TO_B2C_KEY:
+            return
+        payload = {
+            "event_type": "PRODUCT_DELETED",
+            "idempotency_key": str(uuid4()),
+            "occurred_at": _utc_now_iso(),
+            "payload": {
+                "product_id": str(product_id),
+                "sku_ids": [str(s) for s in sku_ids],
+            },
+        }
+        headers = {"X-Service-Key": B2B_TO_B2C_KEY, "Content-Type": "application/json"}
+        async with httpx.AsyncClient() as client:
+            try:
+                await client.post(f"{B2C_URL.rstrip('/')}/api/v1/events/product", json=payload, headers=headers,
+                                  timeout=10.0)
+            except Exception:
+                pass

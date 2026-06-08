@@ -128,3 +128,9 @@ class ProductRepository:
         await self.session.execute(
             delete(ProductFieldReport).where(ProductFieldReport.product_id == product_id)
         )
+
+    async def get_product_by_id_any(self, product_id: UUID) -> Product | None:
+        result = await self.session.execute(
+            select(Product).where(Product.id == product_id).options(*self._product_options())
+        )
+        return result.scalar_one_or_none()
