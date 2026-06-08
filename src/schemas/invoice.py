@@ -39,10 +39,10 @@ class InvoiceCreate(BaseModel):
 
 
 class InvoiceItemResponse(BaseModel):
+    id: UUID
     sku_id: UUID
-    sku_name: str
     quantity: int
-    accepted_quantity: Optional[int] = None
+    accepted_quantity: int | None
 
     class Config:
         from_attributes = True
@@ -50,8 +50,10 @@ class InvoiceItemResponse(BaseModel):
 
 class InvoiceResponse(BaseModel):
     id: UUID
+    seller_id: UUID
     status: str
     created_at: datetime
+    updated_at: datetime | None
     items: list[InvoiceItemResponse]
 
     class Config:

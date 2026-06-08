@@ -32,18 +32,23 @@ class InvoiceRepository:
         return list(result.scalars().all())
 
     async def create_invoice(
-        self,
-        seller_id: UUID,
-        items_data: list[dict],
+            self,
+            seller_id: UUID,
+            items_data: list[dict],
     ) -> Invoice:
         invoice = Invoice(seller_id=seller_id, status="CREATED")
         self.session.add(invoice)
         await self.session.flush()
 
         for item_data in items_data:
-            self.session.add(InvoiceItem(invoice_id=invoice.id, **item_data))
+            self.session.add(
+                InvoiceItem(
+                    invoice_id=invoice.id,
+                    **item_data
+                )
+            )
 
         await self.session.flush()
-        await self.session.refresh(invoice)
+        await self.session.commit()
         await self.session.refresh(invoice, attribute_names=["items"])
         return invoice
