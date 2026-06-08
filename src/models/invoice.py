@@ -14,6 +14,7 @@ class Invoice(AsyncAttrs, Base):
     seller_id = Column(Uuid(as_uuid=True), nullable=False)
     status = Column(String(50), nullable=False, server_default='CREATED')
     created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     accepted_at = Column(DateTime, nullable=True)
 
     __table_args__ = (
