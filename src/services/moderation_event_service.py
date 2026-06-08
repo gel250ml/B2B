@@ -106,3 +106,28 @@ class ModerationEventService:
                                   timeout=10.0)
             except Exception:
                 pass
+
+    async def send_sku_out_of_stock(self, sku_id: UUID, product_id: UUID) -> None:
+        if not B2C_URL or not B2B_TO_B2C_KEY:
+            return
+
+        payload = {
+            "event_type": "SKU_OUT_OF_STOCK",
+            "idempotency_key": str(uuid4()),
+            "occurred_at": _utc_now_iso(),
+            "payload": {
+                "sku_id": str(sku_id),
+                "product_id": str(product_id),
+            },
+        }
+
+        async with httpx.AsyncClient() as client:
+            try:
+                await client.post(
+                    f"{B2C_URL.rstrip('/')}/api/v1/b2b/events",
+                    json=payload,
+                    headers={"X-Service-Key": B2B_TO_B2C_KEY},
+                    timeout=10.0,
+                )
+            except Exception:
+                pass

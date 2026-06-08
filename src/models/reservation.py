@@ -1,30 +1,28 @@
 import uuid
-
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Index, CheckConstraint, Uuid
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Index, CheckConstraint, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.asyncio import AsyncAttrs
+from sqlalchemy.dialects.postgresql import UUID
 
 from src.database.base import Base
 
 
-class Reservation(AsyncAttrs, Base):
-    __tablename__ = 'reservations'
+class Reservation(Base):
+    __tablename__ = "reservations"
 
-    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    reservation_id = Column(String(100), nullable=False, unique=True)
-    order_id = Column(String(100), nullable=False)
-    sku_id = Column(Uuid(as_uuid=True), ForeignKey("skus.id"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    idempotency_key = Column(UUID(as_uuid=True), nullable=False, index=True)
+    order_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    sku_id = Column(UUID(as_uuid=True), ForeignKey("skus.id"), nullable=False)
     quantity = Column(Integer, nullable=False)
-    expires_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, server_default=func.now())
-
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
     sku = relationship("Sku", backref="reservations")
 
     __table_args__ = (
-        CheckConstraint('quantity > 0', name='check_reservation_quantity_positive'),
-        Index('idx_reservations_reservation_id', 'reservation_id'),
-        Index('idx_reservations_order_id', 'order_id'),
-        Index('idx_reservations_sku_id', 'sku_id'),
-        Index('idx_reservations_expires_at', 'expires_at'),
+        CheckConstraint("quantity > 0", name="check_reservation_quantity_positive"),
+        Index("idx_reservation_idempotency", "idempotency_key"),
+        Index("idx_reservation_order", "order_id"),
+        Index("idx_reservation_sku", "sku_id"),
     )
