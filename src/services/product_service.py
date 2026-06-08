@@ -9,7 +9,7 @@ from src.schemas.product import ProductCreate, ProductResponse, ProductUpdate
 from src.core.exceptions import (
     NotFoundException,
     NotOwnerException,
-    ForbiddenException,
+    ForbiddenException, ValidationException,
 )
 from src.services.moderation_event_service import ModerationEventService
 
@@ -138,25 +138,28 @@ class ProductService:
         product = await self.repo.get_product_with_relations_by_id(product_id)
         return ProductResponse.model_validate(product)
 
-
-    async def delete_product(
-        self,
-        seller_id: UUID,
-        product_id: UUID,
-    ) -> None:
-        product = await self.repo.get_product_with_relations_by_id(product_id)
+    async def delete_product(self, seller_id: UUID, product_id: UUID) -> None:
+        product = await self.repo.get_product_by_id_any(product_id)
         if not product:
             raise NotFoundException("Product not found")
-
         if product.seller_id != seller_id:
-            raise NotOwnerException("Product does not belong to the authenticated seller")
+            raise NotOwnerException(...)
+        if product.deleted:  # уже удалён — 400
+            raise ValidationException("Product already deleted")
 
-        if product.status == "HARD_BLOCKED":
-            raise ForbiddenException("Cannot delete hard-blocked product")
+        sku_ids = [sku.id for sku in product.skus if not sku.deleted]
 
         product.deleted = True
         self.session.add(product)
         await self.session.commit()
+
+        # fire-and-forget
+        await self.moderation_service.send_product_edited(
+            product_id=product_id, seller_id=seller_id, event="DELETED"
+        )
+        await self.moderation_service.send_product_deleted_to_b2c(
+            product_id=product_id, sku_ids=sku_ids
+        )
 
     async def get_product_detail(
         self,
