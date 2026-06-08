@@ -1,39 +1,23 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response, status, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.exceptions import ValidationException
 from src.database.dependencies import (
     ProductAccessContext,
     get_db,
     get_current_seller_id,
     get_product_access_context,
 )
-from src.services.product_service import ProductService
-from src.schemas.product import ProductCreate, ProductResponse, ProductUpdate
 from src.schemas.error import ErrorResponse
-from src.core.exceptions import ValidationException
-from src.core.config import B2B_TO_B2C_KEY
+from src.schemas.product import ProductCreate, ProductResponse, ProductUpdate
+from src.services.product_service import ProductService
 
 router = APIRouter(
     prefix="/products",
     tags=["Products"],
 )
-
-async def require_service_key(
-    x_service_key: str | None = Header(
-        None,
-        alias="X-Service-Key",
-    ),
-) -> None:
-    if x_service_key != B2B_TO_B2C_KEY:
-        raise HTTPException(
-            status_code=401,
-            detail={
-                "code": "UNAUTHORIZED",
-                "message": "Invalid service key",
-            },
-        )
 
 @router.post(
     "",
@@ -50,37 +34,6 @@ async def create_product(
 ) -> ProductResponse:
     service = ProductService(db)
     return await service.create_product(seller_id, data)
-
-@router.get("")
-async def list_products_catalog(
-    ids: str | None = Query(None),
-    limit: int = Query(20, ge=1, le=100),
-    offset: int = Query(0, ge=0),
-    _: None = Depends(require_service_key),
-    db: AsyncSession = Depends(get_db),
-) -> dict:
-
-    parsed_ids = None
-
-    if ids:
-        try:
-            parsed_ids = [
-                UUID(item.strip())
-                for item in ids.split(",")
-                if item.strip()
-            ]
-        except ValueError:
-            raise ValidationException(
-                "ids must contain valid UUID values"
-            )
-
-    service = ProductService(db)
-
-    return await service.list_products_catalog(
-        parsed_ids,
-        limit,
-        offset,
-    )
 
 @router.get(
     "/{product_id}",

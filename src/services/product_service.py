@@ -186,7 +186,7 @@ class ProductService:
         offset: int,
     ) -> dict:
 
-        products, total = await self.repo.list_products_catalog(
+        products, total_count = await self.repo.list_products_catalog(
             ids=ids,
             limit=limit,
             offset=offset,
@@ -194,13 +194,12 @@ class ProductService:
 
         return {
             "items": [
-                self._serialize_product_detail(
+                self._serialize_public_product(
                     product,
-                    include_seller_private=False,
                 )
                 for product in products
             ],
-            "total": total,
+            "total_count": total_count,
             "limit": limit,
             "offset": offset,
         }
@@ -311,4 +310,13 @@ class ProductService:
             "blocked": blocked,
             "blocking_reason": self._serialize_blocking_reason(product),
             "field_reports": self._serialize_field_reports(product),
+        }
+
+    def _serialize_public_product(self, product) -> dict:
+        return {
+            "id": str(product.id),
+            "name": product.title,
+            "min_price": self._calc_min_price(product),
+            "has_stock": any(sku.active_quantity > 0 for sku in product.skus),
+            "images": [img.url for img in product.images],
         }
