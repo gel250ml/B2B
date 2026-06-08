@@ -179,6 +179,32 @@ class ProductService:
             include_seller_private=access.mode == "seller",
         )
 
+    async def list_products_catalog(
+        self,
+        ids: list[UUID] | None,
+        limit: int,
+        offset: int,
+    ) -> dict:
+
+        products, total = await self.repo.list_products_catalog(
+            ids=ids,
+            limit=limit,
+            offset=offset,
+        )
+
+        return {
+            "items": [
+                self._serialize_product_detail(
+                    product,
+                    include_seller_private=False,
+                )
+                for product in products
+            ],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+
     def _dt(self, value: datetime | None) -> str | None:
         return value.isoformat() if value is not None else None
 

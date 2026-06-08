@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, func, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -134,3 +134,41 @@ class ProductRepository:
             select(Product).where(Product.id == product_id).options(*self._product_options())
         )
         return result.scalar_one_or_none()
+
+    async def list_products_catalog(
+            self,
+            ids: list[UUID] | None = None,
+            limit: int = 20,
+            offset: int = 0,
+    ) -> tuple[list[Product], int]:
+
+        stmt = (
+            select(Product)
+            .where(
+                Product.deleted.is_(False),
+                Product.status == "MODERATED",
+            )
+            .where(
+                exists().where(
+                    Sku.product_id == Product.id,
+                    Sku.deleted.is_(False),
+                    Sku.active_quantity > 0,
+                )
+            )
+            .options(*self._product_options())
+        )
+
+        if ids:
+            stmt = stmt.where(Product.id.in_(ids))
+
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+
+        total = (
+            await self.session.execute(count_stmt)
+        ).scalar_one()
+
+        stmt = stmt.limit(limit).offset(offset)
+
+        result = await self.session.execute(stmt)
+
+        return list(result.scalars().all()), total
