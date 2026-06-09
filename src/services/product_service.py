@@ -204,6 +204,28 @@ class ProductService:
             "offset": offset,
         }
 
+    async def list_products_seller(
+            self,
+            seller_id: UUID,
+            status: str | None,
+            search: str | None,
+            limit: int,
+            offset: int,
+    ) -> dict:
+        products, total = await self.repo.list_products_seller(
+            seller_id=seller_id,
+            status=status,
+            search=search,
+            limit=limit,
+            offset=offset,
+        )
+        return {
+            "items": [self._serialize_product_list_item(p) for p in products],
+            "total_count": total,
+            "limit": limit,
+            "offset": offset,
+        }
+
     def _dt(self, value: datetime | None) -> str | None:
         return value.isoformat() if value is not None else None
 
@@ -319,4 +341,21 @@ class ProductService:
             "min_price": self._calc_min_price(product),
             "has_stock": any(sku.active_quantity > 0 for sku in product.skus),
             "images": [img.url for img in product.images],
+        }
+
+    def _serialize_product_list_item(self, product) -> dict:
+        active_skus = [s for s in product.skus if not s.deleted]
+        return {
+            "id": str(product.id),
+            "title": product.title,
+            "status": product.status,
+            "deleted": product.deleted,
+            "category": (
+                {"id": str(product.category.id), "name": product.category.name}
+                if product.category else None
+            ),
+            "images": [self._serialize_image(img) for img in product.images],
+            "skus_count": len(active_skus),
+            "total_active_quantity": sum(s.active_quantity for s in active_skus),
+            "created_at": self._dt(product.created_at),
         }
