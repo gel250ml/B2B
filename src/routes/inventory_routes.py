@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.config import B2C_TO_B2B_KEY
 from src.database.dependencies import get_db
 from src.schemas.reserve import ReserveRequest, InventoryOrderRequest
-from src.services.moderation_event_service import ModerationEventService
 from src.services.reserve_service import ReserveService
 
 router = APIRouter(
@@ -41,8 +40,7 @@ def get_reserve_service(
     db: AsyncSession = Depends(get_db),
 ) -> ReserveService:
     return ReserveService(
-        session=db,
-        event_service=ModerationEventService(),
+        session=db
     )
 
 
@@ -54,7 +52,6 @@ async def reserve_inventory(
     payload: ReserveRequest,
     service: ReserveService = Depends(get_reserve_service),
 ):
-    service = ReserveService(db)
     ok = await service.reserve(payload)
 
     if ok is None:
@@ -81,7 +78,6 @@ async def unreserve_inventory(
     payload: InventoryOrderRequest,
     service: ReserveService = Depends(get_reserve_service),
 ):
-    service = ReserveService(db)
     await service.unreserve(payload.order_id)
 
     return {
