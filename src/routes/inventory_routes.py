@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.config import B2C_TO_B2B_KEY
 from src.database.dependencies import get_db
 from src.schemas.reserve import ReserveRequest, InventoryOrderRequest
-from src.services.moderation_event_service import ModerationEventService
 from src.services.reserve_service import ReserveService
 
 router = APIRouter(
