@@ -30,6 +30,7 @@ class ReserveService:
         stmt = (
             select(Sku)
             .where(Sku.id.in_(sku_ids))
+            .order_by(Sku.id)
             .with_for_update()
         )
 
