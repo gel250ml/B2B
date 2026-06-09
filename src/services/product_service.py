@@ -316,7 +316,7 @@ class ProductService:
         return {
             "id": str(product.id),
             "name": product.title,
-            "min_price": self._calc_min_price(product),
+            "min_price": min((sku.price for sku in product.skus if not sku.deleted), default=None),
             "has_stock": any(sku.active_quantity > 0 for sku in product.skus),
             "images": [img.url for img in product.images],
         }
