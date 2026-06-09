@@ -171,7 +171,6 @@ class ProductService:
             raise NotFoundException("Product not found")
 
         if access.mode == "seller" and product.seller_id != access.seller_id:
-            # IDOR protection: do not reveal that another seller's product exists.
             raise NotFoundException("Product not found")
 
         return self._serialize_product_detail(
@@ -186,7 +185,7 @@ class ProductService:
         offset: int,
     ) -> dict:
 
-        products, total = await self.repo.list_products_catalog(
+        products, total_count = await self.repo.list_products_catalog(
             ids=ids,
             limit=limit,
             offset=offset,
@@ -194,13 +193,34 @@ class ProductService:
 
         return {
             "items": [
-                self._serialize_product_detail(
+                self._serialize_public_product(
                     product,
-                    include_seller_private=False,
                 )
                 for product in products
             ],
-            "total": total,
+            "total_count": total_count,
+            "limit": limit,
+            "offset": offset,
+        }
+
+    async def list_products_seller(
+            self,
+            seller_id: UUID,
+            status: str | None,
+            search: str | None,
+            limit: int,
+            offset: int,
+    ) -> dict:
+        products, total = await self.repo.list_products_seller(
+            seller_id=seller_id,
+            status=status,
+            search=search,
+            limit=limit,
+            offset=offset,
+        )
+        return {
+            "items": [self._serialize_product_list_item(p) for p in products],
+            "total_count": total,
             "limit": limit,
             "offset": offset,
         }
@@ -311,4 +331,19 @@ class ProductService:
             "blocked": blocked,
             "blocking_reason": self._serialize_blocking_reason(product),
             "field_reports": self._serialize_field_reports(product),
+        }
+
+    def _serialize_public_product(self, product) -> dict:
+        return {
+            "id": str(product.id),
+            "title": product.title,
+            "slug": product.slug,
+            "status": product.status,
+            "category_id": str(product.category_id),
+            "min_price": min(
+                (sku.price for sku in product.skus if not sku.deleted),
+                default=None,
+            ),
+            "cover_image": product.images[0].url if product.images else None,
+            "created_at": self._dt(product.created_at),
         }

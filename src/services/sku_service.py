@@ -179,3 +179,44 @@ class SkuService:
 
         sku = await self.repo.get_sku_with_product(sku_id)
         return SkuResponse.model_validate(sku)
+
+    async def delete_sku(
+            self,
+            seller_id: UUID,
+            sku_id: UUID,
+    ):
+        sku = await self.repo.get_sku_with_product(sku_id)
+        if not sku:
+            raise NotFoundException("SKU not found")
+
+        product = sku.product
+        if product.seller_id != seller_id:
+            raise NotOwnerException("Product does not belong to the authenticated seller")
+
+        if product.status == "HARD_BLOCKED":
+            raise ForbiddenException("Cannot delete SKU of hard-blocked product")
+
+        if sku.reserved_quantity > 0:
+            raise ConflictException("Cannot delete SKU with active reserves")
+
+        sku.deleted = True
+
+        count_skus = await self.repo.count_skus(product_id=product.id)
+
+        if count_skus <= 1 and product.status == "ON_MODERATION":
+            await self.moderation_service.send_product_edited(
+                product_id=product.id,
+                seller_id=seller_id,
+                event="DELETED",
+            )
+            product.status = "CREATED"
+
+        if sku.active_quantity > 0 and product.status == "MODERATED":
+            await self.moderation_service.send_sku_out_of_stock(
+                sku_id=sku.id,
+                product_id=product.id,
+            )
+
+        self.session.add(sku)
+        await self.session.commit()
+        return

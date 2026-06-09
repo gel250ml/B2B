@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import delete, select, exists
+from sqlalchemy import delete, select, exists, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -77,6 +77,17 @@ class SkuRepository:
         )
         return result
 
+    async def count_skus(self, product_id: UUID) -> int:
+        result = await self.session.scalar(
+            select(func.count())
+            .select_from(Sku)
+            .where(
+                Sku.product_id == product_id,
+                Sku.deleted.is_(False),
+            )
+        )
+        return result or 0
+
     async def create_sku(
             self,
             product_id: UUID,
@@ -128,7 +139,7 @@ class SkuRepository:
                 )
             )
 
-    async def  create_sku_images(
+    async def create_sku_images(
             self,
             sku_id: UUID,
             images: list[dict]
