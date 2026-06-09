@@ -171,7 +171,6 @@ class ProductService:
             raise NotFoundException("Product not found")
 
         if access.mode == "seller" and product.seller_id != access.seller_id:
-            # IDOR protection: do not reveal that another seller's product exists.
             raise NotFoundException("Product not found")
 
         return self._serialize_product_detail(
@@ -337,25 +336,14 @@ class ProductService:
     def _serialize_public_product(self, product) -> dict:
         return {
             "id": str(product.id),
-            "name": product.title,
-            "min_price": min((sku.price for sku in product.skus if not sku.deleted), default=None),
-            "has_stock": any(sku.active_quantity > 0 for sku in product.skus),
-            "images": [img.url for img in product.images],
-        }
-
-    def _serialize_product_list_item(self, product) -> dict:
-        active_skus = [s for s in product.skus if not s.deleted]
-        return {
-            "id": str(product.id),
             "title": product.title,
+            "slug": product.slug,
             "status": product.status,
-            "deleted": product.deleted,
-            "category": (
-                {"id": str(product.category.id), "name": product.category.name}
-                if product.category else None
+            "category_id": str(product.category_id),
+            "min_price": min(
+                (sku.price for sku in product.skus if not sku.deleted),
+                default=None,
             ),
-            "images": [self._serialize_image(img) for img in product.images],
-            "skus_count": len(active_skus),
-            "total_active_quantity": sum(s.active_quantity for s in active_skus),
+            "cover_image": product.images[0].url if product.images else None,
             "created_at": self._dt(product.created_at),
         }
