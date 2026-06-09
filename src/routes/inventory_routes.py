@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.database.dependencies import get_db
 from src.schemas.reserve import ReserveRequest, InventoryOrderRequest
 from src.services.reserve_service import ReserveService
 
@@ -8,11 +10,13 @@ router = APIRouter(
     tags=["Inventory"],
 )
 
+
 @router.post("/reserve")
 async def reserve_inventory(
-    payload: ReserveRequest,
-    service: ReserveService = Depends(),
+        payload: ReserveRequest,
+        db: AsyncSession = Depends(get_db),
 ):
+    service = ReserveService(db)
     ok = await service.reserve(payload)
 
     if ok is None:
@@ -29,8 +33,9 @@ async def reserve_inventory(
 
 @router.post("/unreserve")
 async def unreserve_inventory(
-    payload: InventoryOrderRequest,
-    service: ReserveService = Depends(),
+        payload: InventoryOrderRequest,
+        db: AsyncSession = Depends(get_db),
 ):
+    service = ReserveService(db)
     await service.unreserve(payload.order_id)
     return {"status": "UNRESERVED", "order_id": payload.order_id}
