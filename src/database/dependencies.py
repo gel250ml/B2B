@@ -34,7 +34,7 @@ def _decode_jwt_payload(token: str) -> dict:
         )
 
 
-def _seller_id_from_authorization(authorization: str | None) -> UUID:
+def seller_id_from_authorization(authorization: str | None) -> UUID:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=401,

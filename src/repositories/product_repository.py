@@ -172,3 +172,28 @@ class ProductRepository:
         result = await self.session.execute(stmt)
 
         return list(result.scalars().all()), total
+
+    async def list_products_seller(
+            self,
+            seller_id: UUID,
+            status: str | None = None,
+            search: str | None = None,
+            limit: int = 20,
+            offset: int = 0,
+    ) -> tuple[list[Product], int]:
+        stmt = (
+            select(Product)
+            .where(Product.seller_id == seller_id)
+            .options(*self._product_options())
+        )
+        if status:
+            stmt = stmt.where(Product.status == status)
+        if search:
+            stmt = stmt.where(Product.title.ilike(f"%{search}%"))
+
+        count_result = await self.session.execute(
+            select(func.count()).select_from(stmt.subquery())
+        )
+        total = count_result.scalar_one()
+        result = await self.session.execute(stmt.limit(limit).offset(offset))
+        return list(result.scalars().all()), total

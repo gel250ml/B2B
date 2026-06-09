@@ -203,6 +203,28 @@ class ProductService:
             "offset": offset,
         }
 
+    async def list_products_seller(
+            self,
+            seller_id: UUID,
+            status: str | None,
+            search: str | None,
+            limit: int,
+            offset: int,
+    ) -> dict:
+        products, total = await self.repo.list_products_seller(
+            seller_id=seller_id,
+            status=status,
+            search=search,
+            limit=limit,
+            offset=offset,
+        )
+        return {
+            "items": [self._serialize_product_list_item(p) for p in products],
+            "total_count": total,
+            "limit": limit,
+            "offset": offset,
+        }
+
     def _dt(self, value: datetime | None) -> str | None:
         return value.isoformat() if value is not None else None
 
