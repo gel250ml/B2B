@@ -51,7 +51,7 @@ async def update_sku(
 
 
 @router.delete(
-    "skus/{sku_id}",
+    "/{sku_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
         403: {"model": ErrorResponse, "description": "Forbidden"},
