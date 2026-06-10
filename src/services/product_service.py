@@ -209,6 +209,7 @@ class ProductService:
             seller_id: UUID,
             status: str | None,
             search: str | None,
+            include_deleted: bool,
             limit: int,
             offset: int,
     ) -> dict:
@@ -216,6 +217,7 @@ class ProductService:
             seller_id=seller_id,
             status=status,
             search=search,
+            include_deleted=include_deleted,
             limit=limit,
             offset=offset,
         )
@@ -345,15 +347,14 @@ class ProductService:
 
     def _serialize_product_list_item(self, product) -> dict:
         active_skus = [s for s in product.skus if not s.deleted]
+
         return {
             "id": str(product.id),
             "title": product.title,
+            "slug": product.slug,
             "status": product.status,
+            "category_id": str(product.category_id),
             "deleted": product.deleted,
-            "category": (
-                {"id": str(product.category.id), "name": product.category.name}
-                if product.category else None
-            ),
             "images": [self._serialize_image(img) for img in product.images],
             "skus_count": len(active_skus),
             "total_active_quantity": sum(s.active_quantity for s in active_skus),

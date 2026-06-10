@@ -178,6 +178,7 @@ class ProductRepository:
             seller_id: UUID,
             status: str | None = None,
             search: str | None = None,
+            include_deleted: bool = False,
             limit: int = 20,
             offset: int = 0,
     ) -> tuple[list[Product], int]:
@@ -190,6 +191,8 @@ class ProductRepository:
             stmt = stmt.where(Product.status == status)
         if search:
             stmt = stmt.where(Product.title.ilike(f"%{search}%"))
+        if not include_deleted:
+            stmt = stmt.where(Product.deleted.is_(False))
 
         count_result = await self.session.execute(
             select(func.count()).select_from(stmt.subquery())

@@ -32,6 +32,7 @@ async def list_products(
     offset: int = Query(0, ge=0),
     status: str | None = Query(None),
     search: str | None = Query(None),
+    include_deleted: bool = Query(False),
     x_service_key: str | None = Header(None, alias="X-Service-Key"),
     authorization: str | None = Header(None, alias="Authorization"),
     db: AsyncSession = Depends(get_db),
@@ -53,7 +54,7 @@ async def list_products(
         return await service.list_products_catalog(parsed_ids, limit, offset)
 
     seller_id = seller_id_from_authorization(authorization)
-    return await service.list_products_seller(seller_id, status, search, limit, offset)
+    return await service.list_products_seller(seller_id, status, search, include_deleted, limit, offset)
 
 
 @router.post(
