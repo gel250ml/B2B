@@ -11,9 +11,9 @@ from src.schemas.reserve import ReserveRequest
 
 class ReserveService:
 
-    def __init__(self, session: AsyncSession, event_service: ModerationEventService):
+    def __init__(self, session: AsyncSession):
         self.session = session
-        self.event_service = event_service
+        self.event_service = ModerationEventService()
 
     async def reserve(self, data: ReserveRequest):
 
@@ -30,6 +30,7 @@ class ReserveService:
         stmt = (
             select(Sku)
             .where(Sku.id.in_(sku_ids))
+            .order_by(Sku.id)
             .with_for_update()
         )
 

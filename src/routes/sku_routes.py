@@ -48,3 +48,21 @@ async def update_sku(
 ) -> SkuResponse:
     service = SkuService(db)
     return await service.update_sku(seller_id, sku_id, data)
+
+
+@router.delete(
+    "/{sku_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        403: {"model": ErrorResponse, "description": "Forbidden"},
+        404: {"model": ErrorResponse, "description": "SKU not found"},
+        409: {"model": ErrorResponse, "description": "Conflict"},
+    },
+)
+async def delete_sku(
+        sku_id: UUID,
+        seller_id: UUID = Depends(get_current_seller_id),
+        db: AsyncSession = Depends(get_db),
+):
+    service = SkuService(db)
+    return await service.delete_sku(seller_id=seller_id, sku_id=sku_id)
