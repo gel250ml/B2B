@@ -1,12 +1,16 @@
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
+
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models.sku import Sku
+from src.models.fulfilled_order import FulfilledOrder
 from src.models.reservation import Reservation
+from src.models.sku import Sku
+from src.schemas.reserve import InventoryOrderRequest, ReserveRequest
 from src.services.moderation_event_service import ModerationEventService
-from src.schemas.reserve import ReserveRequest
 
 
 class ReserveService:
@@ -100,6 +104,66 @@ class ReserveService:
             sku.reserved_quantity -= r.quantity
 
             r.is_active = False
+
+        await self.session.commit()
+
+        return True
+
+    async def fulfill(self, data: InventoryOrderRequest):
+        """
+        Финальное списание резерва после доставки заказа.
+
+        Идемпотентность держим отдельной таблицей fulfilled_orders с UNIQUE(order_id):
+        повторный вызов с тем же order_id возвращает успех и не меняет остатки.
+        """
+
+        fulfilled_order = FulfilledOrder(order_id=data.order_id)
+        self.session.add(fulfilled_order)
+
+        try:
+            await self.session.flush()
+        except IntegrityError:
+            await self.session.rollback()
+            return True
+
+        quantities_by_sku: dict[UUID, int] = defaultdict(int)
+        for item in data.items:
+            quantities_by_sku[item.sku_id] += item.quantity
+
+        if not quantities_by_sku:
+            await self.session.rollback()
+            return None
+
+        sku_ids = sorted(quantities_by_sku.keys(), key=str)
+
+        skus_result = await self.session.execute(
+            select(Sku)
+            .where(Sku.id.in_(sku_ids))
+            .order_by(Sku.id)
+            .with_for_update()
+        )
+        skus = {sku.id: sku for sku in skus_result.scalars().all()}
+
+        for sku_id, quantity in quantities_by_sku.items():
+            sku = skus.get(sku_id)
+            if not sku or sku.reserved_quantity < quantity:
+                await self.session.rollback()
+                return None
+
+        for sku_id, quantity in quantities_by_sku.items():
+            sku = skus[sku_id]
+            sku.reserved_quantity -= quantity
+
+        reservations_result = await self.session.execute(
+            select(Reservation).where(
+                Reservation.order_id == data.order_id,
+                Reservation.sku_id.in_(sku_ids),
+                Reservation.is_active.is_(True),
+            )
+        )
+        reservations = reservations_result.scalars().all()
+        for reservation in reservations:
+            reservation.is_active = False
 
         await self.session.commit()
 

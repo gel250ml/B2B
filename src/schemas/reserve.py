@@ -28,3 +28,7 @@ class InventoryOrderResponse(BaseModel):
     order_id: UUID
     status: str
     processed_at: str
+
+
+class FulfillResponse(BaseModel):
+    ok: bool = True
