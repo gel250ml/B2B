@@ -204,10 +204,8 @@ class SkuService:
         count_skus = await self.repo.count_skus(product_id=product.id)
 
         if count_skus <= 1 and product.status == "ON_MODERATION":
-            await self.moderation_service.send_product_edited(
+            await self.moderation_service.send_product_deleted_to_moderation(
                 product_id=product.id,
-                seller_id=seller_id,
-                event="DELETED",
             )
             product.status = "CREATED"
 
