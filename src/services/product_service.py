@@ -171,6 +171,7 @@ class ProductService:
             raise NotFoundException("Product not found")
 
         if access.mode == "seller" and product.seller_id != access.seller_id:
+            # IDOR protection: do not reveal that another seller's product exists.
             raise NotFoundException("Product not found")
 
         return self._serialize_product_detail(
@@ -179,22 +180,14 @@ class ProductService:
         )
 
     async def list_products_catalog(
-            self,
-            ids: list[UUID] | None,
-            category_id: UUID | None,
-            search: str | None,
-            min_price: int | None,
-            max_price: int | None,
-            limit: int,
-            offset: int,
+        self,
+        ids: list[UUID] | None,
+        limit: int,
+        offset: int,
     ) -> dict:
 
         products, total_count = await self.repo.list_products_catalog(
             ids=ids,
-            category_id=category_id,
-            search=search,
-            min_price=min_price,
-            max_price=max_price,
             limit=limit,
             offset=offset,
         )
@@ -216,6 +209,7 @@ class ProductService:
             seller_id: UUID,
             status: str | None,
             search: str | None,
+            include_deleted: bool,
             limit: int,
             offset: int,
     ) -> dict:
@@ -223,6 +217,7 @@ class ProductService:
             seller_id=seller_id,
             status=status,
             search=search,
+            include_deleted=include_deleted,
             limit=limit,
             offset=offset,
         )
@@ -344,37 +339,24 @@ class ProductService:
     def _serialize_public_product(self, product) -> dict:
         return {
             "id": str(product.id),
-            "title": product.title,
-            "slug": product.slug,
-            "status": product.status,
-            "category_id": str(product.category_id),
-            "min_price": min(
-                (sku.price for sku in product.skus if not sku.deleted),
-                default=None,
-            ),
-            "cover_image": product.images[0].url if product.images else None,
-            "created_at": self._dt(product.created_at),
+            "name": product.title,
+            "min_price": self._calc_min_price(product),
+            "has_stock": any(sku.active_quantity > 0 for sku in product.skus),
+            "images": [img.url for img in product.images],
         }
 
     def _serialize_product_list_item(self, product) -> dict:
-        active_skus = [
-            sku
-            for sku in product.skus
-            if not sku.deleted
-        ]
+        active_skus = [s for s in product.skus if not s.deleted]
 
         return {
             "id": str(product.id),
             "title": product.title,
             "slug": product.slug,
             "status": product.status,
-            "deleted": product.deleted,
             "category_id": str(product.category_id),
+            "deleted": product.deleted,
+            "images": [self._serialize_image(img) for img in product.images],
             "skus_count": len(active_skus),
-            "total_active_quantity": sum(
-                sku.active_quantity
-                for sku in active_skus
-            ),
+            "total_active_quantity": sum(s.active_quantity for s in active_skus),
             "created_at": self._dt(product.created_at),
-            "updated_at": self._dt(product.updated_at),
         }

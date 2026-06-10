@@ -7,7 +7,17 @@ from src.core.config import B2C_TO_B2B_KEY
 from src.database.dependencies import get_db
 from src.schemas.reserve import ReserveRequest, InventoryOrderRequest
 from src.services.reserve_service import ReserveService
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.database.dependencies import get_db
+from src.services.moderation_event_service import ModerationEventService
 
+
+def get_reserve_service(
+    session: AsyncSession = Depends(get_db),
+):
+    event_service = ModerationEventService()
+    return ReserveService(session, event_service)
 router = APIRouter(
     prefix="/inventory",
     tags=["Inventory"],

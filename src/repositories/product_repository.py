@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import delete, select, func, exists, or_
+from sqlalchemy import delete, select, func, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -138,10 +138,6 @@ class ProductRepository:
     async def list_products_catalog(
             self,
             ids: list[UUID] | None = None,
-            category_id: UUID | None = None,
-            search: str | None = None,
-            min_price: int | None = None,
-            max_price: int | None = None,
             limit: int = 20,
             offset: int = 0,
     ) -> tuple[list[Product], int]:
@@ -164,31 +160,6 @@ class ProductRepository:
 
         if ids:
             stmt = stmt.where(Product.id.in_(ids))
-        if category_id:
-            stmt = stmt.where(Product.category_id == category_id)
-        if search:
-            stmt = stmt.where(
-                or_(
-                    Product.title.ilike(f"%{search}%"),
-                    Product.description.ilike(f"%{search}%"),
-                )
-            )
-        if min_price is not None:
-            stmt = stmt.where(
-                exists().where(
-                    Sku.product_id == Product.id,
-                    Sku.deleted.is_(False),
-                    Sku.price >= min_price,
-                )
-            )
-        if max_price is not None:
-            stmt = stmt.where(
-                exists().where(
-                    Sku.product_id == Product.id,
-                    Sku.deleted.is_(False),
-                    Sku.price <= max_price,
-                )
-            )
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
 
@@ -207,6 +178,7 @@ class ProductRepository:
             seller_id: UUID,
             status: str | None = None,
             search: str | None = None,
+            include_deleted: bool = False,
             limit: int = 20,
             offset: int = 0,
     ) -> tuple[list[Product], int]:
@@ -218,12 +190,9 @@ class ProductRepository:
         if status:
             stmt = stmt.where(Product.status == status)
         if search:
-            stmt = stmt.where(
-                or_(
-                    Product.title.ilike(f"%{search}%"),
-                    Product.description.ilike(f"%{search}%"),
-                )
-            )
+            stmt = stmt.where(Product.title.ilike(f"%{search}%"))
+        if not include_deleted:
+            stmt = stmt.where(Product.deleted.is_(False))
 
         count_result = await self.session.execute(
             select(func.count()).select_from(stmt.subquery())
