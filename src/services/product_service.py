@@ -179,14 +179,22 @@ class ProductService:
         )
 
     async def list_products_catalog(
-        self,
-        ids: list[UUID] | None,
-        limit: int,
-        offset: int,
+            self,
+            ids: list[UUID] | None,
+            category_id: UUID | None,
+            search: str | None,
+            min_price: int | None,
+            max_price: int | None,
+            limit: int,
+            offset: int,
     ) -> dict:
 
         products, total_count = await self.repo.list_products_catalog(
             ids=ids,
+            category_id=category_id,
+            search=search,
+            min_price=min_price,
+            max_price=max_price,
             limit=limit,
             offset=offset,
         )
@@ -346,4 +354,27 @@ class ProductService:
             ),
             "cover_image": product.images[0].url if product.images else None,
             "created_at": self._dt(product.created_at),
+        }
+
+    def _serialize_product_list_item(self, product) -> dict:
+        active_skus = [
+            sku
+            for sku in product.skus
+            if not sku.deleted
+        ]
+
+        return {
+            "id": str(product.id),
+            "title": product.title,
+            "slug": product.slug,
+            "status": product.status,
+            "deleted": product.deleted,
+            "category_id": str(product.category_id),
+            "skus_count": len(active_skus),
+            "total_active_quantity": sum(
+                sku.active_quantity
+                for sku in active_skus
+            ),
+            "created_at": self._dt(product.created_at),
+            "updated_at": self._dt(product.updated_at),
         }
