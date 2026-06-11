@@ -37,7 +37,7 @@ class ModerationEventService:
         async with httpx.AsyncClient() as client:
             try:
                 await client.post(
-                    f"{MODERATION_URL.rstrip('/')}/api/v1/events/product",
+                    f"{MODERATION_URL.rstrip('/')}/api/v1/b2b/events",
                     json=payload,
                     headers=headers,
                     timeout=10.0,
@@ -147,7 +147,7 @@ class ModerationEventService:
         async with httpx.AsyncClient() as client:
             try:
                 await client.post(
-                    f"{MODERATION_URL.rstrip('/')}/api/v1/events/product",
+                    f"{MODERATION_URL.rstrip('/')}/api/v1/b2b/events",
                     json=payload,
                     headers=headers,
                     timeout=10.0
