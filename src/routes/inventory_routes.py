@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.config import B2C_TO_B2B_KEY
 from src.database.dependencies import get_db
 from src.schemas.reserve import (
-    FulfillResponse,
     InventoryOrderRequest,
+    InventoryOrderResponse,
     ReserveRequest,
 )
 from src.services.reserve_service import ReserveService
@@ -101,7 +101,7 @@ async def unreserve_inventory(
 
 @router.post(
     "/fulfill",
-    response_model=FulfillResponse,
+    response_model=InventoryOrderResponse,
     dependencies=[Depends(require_service_key)],
 )
 async def fulfill_inventory(
@@ -119,4 +119,8 @@ async def fulfill_inventory(
             },
         )
 
-    return FulfillResponse(ok=True)
+    return InventoryOrderResponse(
+        order_id=payload.order_id,
+        status="FULFILLED",
+        processed_at=datetime.now(timezone.utc).isoformat(),
+    )

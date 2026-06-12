@@ -153,6 +153,7 @@ class ReserveService:
         for sku_id, quantity in quantities_by_sku.items():
             sku = skus[sku_id]
             sku.reserved_quantity -= quantity
+            sku.stock_quantity -= quantity
 
         reservations_result = await self.session.execute(
             select(Reservation).where(
