@@ -29,6 +29,3 @@ class InventoryOrderResponse(BaseModel):
     status: str
     processed_at: str
 
-
-class FulfillResponse(BaseModel):
-    ok: bool = True

@@ -11,6 +11,8 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
+      B2B_TO_B2C_KEY: ${B2B_TO_B2C_KEY}
+      B2C_TO_B2B_KEY: ${B2C_TO_B2B_KEY}
     ports:
       - "8000:8000"
     command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload  --log-level debug
