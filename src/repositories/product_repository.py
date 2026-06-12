@@ -140,8 +140,8 @@ class ProductRepository:
             ids: list[UUID] | None = None,
             category_id: UUID | None = None,
             search: str | None = None,
-            min_price: int | None = None,
-            max_price: int | None = None,
+            min_price: float | None = None,
+            max_price: float | None = None,
             limit: int = 20,
             offset: int = 0,
     ) -> tuple[list[Product], int]:
@@ -167,17 +167,13 @@ class ProductRepository:
         if category_id:
             stmt = stmt.where(Product.category_id == category_id)
         if search:
-            stmt = stmt.where(
-                or_(
-                    Product.title.ilike(f"%{search}%"),
-                    Product.description.ilike(f"%{search}%"),
-                )
-            )
+            stmt = stmt.where(Product.title.ilike(f"%{search}%"))
         if min_price is not None:
             stmt = stmt.where(
                 exists().where(
                     Sku.product_id == Product.id,
                     Sku.deleted.is_(False),
+                    Sku.active_quantity > 0,
                     Sku.price >= min_price,
                 )
             )
@@ -186,20 +182,14 @@ class ProductRepository:
                 exists().where(
                     Sku.product_id == Product.id,
                     Sku.deleted.is_(False),
+                    Sku.active_quantity > 0,
                     Sku.price <= max_price,
                 )
             )
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
-
-        total = (
-            await self.session.execute(count_stmt)
-        ).scalar_one()
-
-        stmt = stmt.limit(limit).offset(offset)
-
-        result = await self.session.execute(stmt)
-
+        total = (await self.session.execute(count_stmt)).scalar_one()
+        result = await self.session.execute(stmt.limit(limit).offset(offset))
         return list(result.scalars().all()), total
 
     async def list_products_seller(

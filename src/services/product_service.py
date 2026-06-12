@@ -183,12 +183,11 @@ class ProductService:
             ids: list[UUID] | None,
             category_id: UUID | None,
             search: str | None,
-            min_price: int | None,
-            max_price: int | None,
+            min_price: float | None,
+            max_price: float | None,
             limit: int,
             offset: int,
     ) -> dict:
-
         products, total_count = await self.repo.list_products_catalog(
             ids=ids,
             category_id=category_id,
@@ -198,14 +197,8 @@ class ProductService:
             limit=limit,
             offset=offset,
         )
-
         return {
-            "items": [
-                self._serialize_public_product(
-                    product,
-                )
-                for product in products
-            ],
+            "items": [self._serialize_public_product(p) for p in products],
             "total_count": total_count,
             "limit": limit,
             "offset": offset,
@@ -342,17 +335,20 @@ class ProductService:
         }
 
     def _serialize_public_product(self, product) -> dict:
+        active_skus = [s for s in product.skus if not s.deleted and s.active_quantity > 0]
+        prices = [s.price for s in active_skus if s.price is not None]
+        min_price = min(prices) if prices else None
+
+        cover_image = product.images[0].url if product.images else None
+
         return {
             "id": str(product.id),
             "title": product.title,
             "slug": product.slug,
             "status": product.status,
             "category_id": str(product.category_id),
-            "min_price": min(
-                (sku.price for sku in product.skus if not sku.deleted),
-                default=None,
-            ),
-            "cover_image": product.images[0].url if product.images else None,
+            "min_price": min_price,
+            "cover_image": cover_image,
             "created_at": self._dt(product.created_at),
         }
 

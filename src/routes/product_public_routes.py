@@ -31,16 +31,22 @@ async def require_service_key(
 @router.get("/")
 async def list_products_catalog(
     ids: list[UUID] | None = Query(None),
+    category_id: UUID | None = Query(None),
+    search: str | None = Query(None),
+    min_price: float | None = Query(None),
+    max_price: float | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     _: None = Depends(require_service_key),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-
     service = ProductService(db)
-
     return await service.list_products_catalog(
-        ids,
-        limit,
-        offset,
+        ids=ids,
+        category_id=category_id,
+        search=search,
+        min_price=min_price,
+        max_price=max_price,
+        limit=limit,
+        offset=offset,
     )
