@@ -61,7 +61,7 @@ def seller_id_from_authorization(authorization: str | None) -> UUID:
 async def get_current_seller_id(
     authorization: str = Header(..., alias="Authorization"),
 ) -> UUID:
-    return _seller_id_from_authorization(authorization)
+    return seller_id_from_authorization(authorization)
 
 
 async def get_product_access_context(
@@ -78,7 +78,7 @@ async def get_product_access_context(
 
     return ProductAccessContext(
         mode="seller",
-        seller_id=_seller_id_from_authorization(authorization),
+        seller_id=seller_id_from_authorization(authorization),
     )
 
 async def verify_moderation_service_key(
