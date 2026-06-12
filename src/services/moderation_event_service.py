@@ -102,7 +102,7 @@ class ModerationEventService:
         headers = {"X-Service-Key": B2B_TO_B2C_KEY, "Content-Type": "application/json"}
         async with httpx.AsyncClient() as client:
             try:
-                await client.post(f"{B2C_URL.rstrip('/')}/api/v1/events/product", json=payload, headers=headers,
+                await client.post(f"{B2C_URL.rstrip('/')}/api/v1/b2b/events", json=payload, headers=headers,
                                   timeout=10.0)
             except Exception:
                 pass
@@ -118,6 +118,7 @@ class ModerationEventService:
             "payload": {
                 "sku_id": str(sku_id),
                 "product_id": str(product_id),
+                "available_quantity": "0",
             },
         }
 
